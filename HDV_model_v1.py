@@ -20,7 +20,7 @@ demand_temp = pd.read_excel('C:/Users/atpha/Documents/Classes/Python workshop/Py
 wind_temp = pd.read_excel('C:/Users/atpha/Documents/Classes/Python workshop/Pyomo/'
                           'Power System Design/cost_uc.xlsx','wind')
 
-# Calculate total variable cost cost
+# Calculate total variable cost:
 EGU_temp['tvc'] = EGU_temp['fuelcost']*EGU_temp['heatrate']/1000 + EGU_temp['vom']
 
 # Convert dataframe into dictionary:
