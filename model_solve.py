@@ -173,11 +173,19 @@ def x_battery(model, s, t):    # state of charge constraints
     return model.x_B[s, t] == model.x_B[s, t - 1] + model.d_B[s, t] - model.g_B[s, t]
 model.x_b = Constraint(S, T, rule=x_battery)
 
-def r_battery(model, s, t):    # ramping constraints
+def r_battery_up(model, s, t):    # ramping constraints
     if t == 0:
         return Constraint.Skip
-    return abs(model.g_B[s, t] - model.g_B[s, t-1]) <= r_B[s]
-model.r_b = Constraint(S, T, rule=r_battery)
+    else:
+        return model.g_B[s, t] - model.g_B[s, t-1] <= r_B[s]
+model.r_b_up = Constraint(S, T, rule=r_battery_up)
+
+def r_battery_down(model, s, t):    # ramping constraints
+    if t == 0:
+        return Constraint.Skip
+    else:
+        return model.g_B[s, t-1] - model.g_B[s, t] <= r_B[s]
+model.r_b_down = Constraint(S, T, rule=r_battery_down)
 
 # H2 constraints:
 def ub_d_hydrogen(model, s, t):  # d_H <= k_H
@@ -202,11 +210,19 @@ def x_hydrogen(model, s, t):    # state of charge constraints
     return model.x_H[s, t] == model.x_H[s, t - 1] + model.d_H[s, t] - model.g_H[s, t]
 model.x_h = Constraint(S, T, rule=x_hydrogen)
 
-def r_hydrogen(model, s, t):    # ramping constraints
+def r_hydrogen_up(model, s, t):    # ramping constraints
     if t == 0:
         return Constraint.Skip
-    return abs(model.g_H[s, t] - model.g_H[s, t-1]) <= r_H[s]
-model.r_h = Constraint(S, T, rule=r_hydrogen)
+    else:
+        return model.g_H[s, t] - model.g_H[s, t - 1] <= r_H[s]
+model.r_h_up = Constraint(S, T, rule=r_hydrogen_up)
+
+def r_hydrogen_down(model, s, t):    # ramping constraints
+    if t == 0:
+        return Constraint.Skip
+    else:
+        return model.g_H[s, t-1] - model.g_H[s, t] <= r_H[s]
+model.r_h_down = Constraint(S, T, rule=r_hydrogen_down)
 
 # Solar PV constraint:
 def ub_g_solar(model, s, t):  # g_P <= f_P k_P
@@ -218,11 +234,19 @@ def ub_g_smr(model, s, t):  # g_M <= u_M k_M
     return model.g_M[s, t] <= model.u_M[s]*k_M[s]
 model.ub_g_M = Constraint(S, T, rule=ub_g_smr)
 
-def r_smr(model, s, t):    # ramping constraints
+def r_smr_up(model, s, t):    # ramping constraints
     if t == 0:
-        return Constraint.Skip                          # here needs to specify initial SOC conditions
-    return abs(model.g_M[s, t] - model.g_M[s, t-1]) <= r_M[s]
-model.r_m = Constraint(S, T, rule=r_smr)
+        return Constraint.Skip
+    else:
+        return model.g_M[s, t] - model.g_M[s, t - 1] <= r_M[s]
+model.r_m_up = Constraint(S, T, rule=r_smr_up)
+
+def r_smr_down(model, s, t):    # ramping constraints
+    if t == 0:
+        return Constraint.Skip
+    else:
+        return model.g_M[s, t-1] - model.g_M[s, t] <= r_M[s]
+model.r_m_down = Constraint(S, T, rule=r_smr_down)
 
 # Wholesale power constraints:
 def ub_g_wholesale(model, s, t):  # g_W <= u_W k_W
