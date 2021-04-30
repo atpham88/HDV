@@ -6,19 +6,21 @@ from pyomo.opt import SolverFactory
 import pandas as pd
 import numpy as np
 import time
-
+import xlrd
+import xlwt
+import xlsxwriter
 
 start_time = time.time()
 
 
 # %% Set model type - Concrete Model:
-model = ConcreteModel(name="HDV_model")
+model = ConcreteModel(name="HDV_model_test")
 
 
 # %% Define set:
 I = list(range(7))      # Set of transmission capacity classes (7 classes)
 S = list(range(170))    # Set of charging stations (170 stations)
-T = list(range(8760))   # Set of hours in a year (8760 hours)
+T = list(range(24))   # Set of hours in a year (8760 hours)
 
 
 # %% Define variables:
@@ -56,7 +58,7 @@ model.u_W = Var(S, I, within=Binary)  # Whether a transmission line is built or 
 # Load profile data:
 load_data_raw = pd.read_csv(r"C:\Users\atpha\Documents\Postdocs\Projects\HDV\Data\load_station\TM2012_SPNation_TF-1_PT1_DPs1_BS1000_CP500_TD1_BD1_VW1_station.csv", header=None)
 load_data_raw_2 = load_data_raw.iloc[:, 4:]/1000
-load_data_annual = pd.DataFrame(np.tile(load_data_raw_2, 365))
+load_data_annual = pd.DataFrame(np.tile(load_data_raw_2, 1))
 d_E = {(r, c): load_data_annual.at[r, c] for r in S for c in T}
 
 # Storage data:
@@ -81,7 +83,7 @@ p_ME = 0                        # SMR operating cost
 # Solar data:
 solar_data = r"C:\Users\atpha\Documents\Postdocs\Projects\HDV\Data\solar\solar.xlsx"
 f_P_24 = pd.read_excel(solar_data, "capacity factor")                               # solar capacity factor (S x T)
-f_P_annual = pd.DataFrame(np.tile(f_P_24, 365))
+f_P_annual = pd.DataFrame(np.tile(f_P_24, 1))
 f_P = {(r, c): f_P_annual.at[r, c] for r in S for c in T}
 
 p_PK = 300000                                                                       # solar capacity cost
@@ -105,7 +107,7 @@ l_W_temp = pd.DataFrame(pd.read_excel(transmission_data, "trans line length"))  
 l_W = {(r, c): l_W_temp.at[r, c] for r in S for c in I}
 
 p_WE_24 = pd.read_excel(transmission_data, "wholesale price")
-p_WE_annual = pd.DataFrame(np.tile(p_WE_24, 365))
+p_WE_annual = pd.DataFrame(np.tile(p_WE_24, 1))
 p_WE = {(r, c): p_WE_annual.at[r, c] for r in S for c in T}                         # wholesale electricity cost (S x T)
 
 
@@ -251,3 +253,99 @@ else:
     print('Solver Status: ', results.solver.status)
 
 print("--- %s seconds ---" % (time.time() - start_time))
+
+print('Total Cost:', value(model.obj_func))
+
+
+# %% Print variable outputs:
+
+print('Total Cost:', value(model.obj_func))
+
+S_s = 170
+T_t = 24
+I_i = 7
+
+k_B_star = np.zeros(S_s)
+k_H_star = np.zeros(S_s)
+k_P_star = np.zeros(S_s)
+e_B_star = np.zeros(S_s)
+e_H_star = np.zeros(S_s)
+u_M_star = np.zeros(S_s)
+
+g_B_star = np.zeros((S_s, T_t))
+g_H_star = np.zeros((S_s, T_t))
+g_P_star = np.zeros((S_s, T_t))
+g_M_star = np.zeros((S_s, T_t))
+g_W_star = np.zeros((S_s, T_t))
+d_B_star = np.zeros((S_s, T_t))
+d_H_star = np.zeros((S_s, T_t))
+x_B_star = np.zeros((S_s, T_t))
+x_H_star = np.zeros((S_s, T_t))
+
+u_W_star = np.zeros((S_s, I_i))
+
+for s in S:
+     k_B_star[s] = value(model.k_B[s])
+     k_H_star[s] = value(model.k_H[s])
+     k_P_star[s] = value(model.k_P[s])
+     e_B_star[s] = value(model.e_B[s])
+     e_H_star[s] = value(model.e_H[s])
+     u_M_star[s] = value(model.u_M[s])
+
+for s in S:
+    for t in T:
+        g_B_star = value(model.g_B[s, t])
+        g_H_star = value(model.g_H[s, t])
+        g_P_star = value(model.g_P[s, t])
+        g_M_star = value(model.g_M[s, t])
+        g_W_star = value(model.g_W[s, t])
+        d_B_star = value(model.d_B[s, t])
+        d_H_star = value(model.d_H[s, t])
+        x_B_star = value(model.x_B[s, t])
+        x_H_star = value(model.x_H[s, t])
+
+for s in S:
+    for i in I:
+        u_W_star = value(model.u_W[s, i])
+
+
+
+np.savetxt('k_B_star.txt', k_B_star)
+np.savetxt('k_H_star.txt', k_H_star)
+np.savetxt('k_P_star.txt', k_P_star)
+np.savetxt('e_B_star.txt', e_B_star)
+np.savetxt('e_H_star.txt', e_H_star)
+np.savetxt('u_M_star.txt', u_M_star)
+np.savetxt('g_H_star.txt', g_H_star)
+np.savetxt('g_M_star.txt', g_M_star)
+np.savetxt('g_W_star.txt', g_W_star)
+np.savetxt('d_B_star.txt', d_B_star)
+np.savetxt('d_H_star.txt', d_H_star)
+np.savetxt('x_B_star.txt', x_B_star)
+np.savetxt('x_H_star.txt', x_H_star)
+np.savetxt('u_W_star.txt', u_W_star)
+
+
+#def output(hdv_results, k_B_star, k_H_star, k_P_star, e_B_star, e_H_star, u_M_star,
+           #g_B_star, g_H_star, g_P_star, g_M_star, g_W_star, d_B_star, d_H_star, x_B_star, x_H_star):
+    #hdv_results = xlwt.Workbook('HDV Model Results')
+    #sh = hdv_results.add_sheet('Power Rating')
+
+    #variables = [k_B_star, e_B_star, k_H_star, e_H_star, k_P_star, u_M_star ]
+    #title = ['Battery Power Rating', 'Battery Energy Rating', 'Hydrogen Power Rating', 'Hydrogen Energy Rating',
+            #'Solar Capacity', 'Number of SMR Modules Built']
+
+
+    #You may need to group the variables together
+    #for n, (v_desc, v) in enumerate(zip(desc, variables)):
+    #for n, v_desc, v in enumerate(title):
+        #sh.write(n, 0, v_desc)
+        #sh.write(n, 1, v)
+
+    #n+=1
+
+    #hdv_results.save(hdv_results)
+
+#for s in S:
+    #for t in T:
+        #print('<station '+str(s+1), 'in hour '+str(t+1)+'>:', value(model.g_M[s, t]))
