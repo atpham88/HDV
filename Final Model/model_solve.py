@@ -3,10 +3,8 @@
 # %% Import modules:
 from pyomo.environ import *
 from pyomo.opt import SolverFactory
-import time
 from get_input import *
 
-start_time = time.time()
 
 # %% Set model type - Concrete Model:
 model = ConcreteModel(name="HDV_model")
@@ -82,27 +80,6 @@ def x_battery(model, s, t):
 
 model.x_b = Constraint(S, T, rule=x_battery)
 
-
-def r_battery_up(model, s, t):
-    if t == 0:
-        return Constraint.Skip
-    else:
-        return model.g_B[s, t] - model.g_B[s, t - 1] <= r_B * model.e_B[s]
-
-
-model.r_b_up = Constraint(S, T, rule=r_battery_up)
-
-
-def r_battery_down(model, s, t):
-    if t == 0:
-        return Constraint.Skip
-    else:
-        return model.g_B[s, t - 1] - model.g_B[s, t] <= r_B * model.e_B[s]
-
-
-model.r_b_down = Constraint(S, T, rule=r_battery_down)
-
-
 # H2 constraints:
 def ub_d_hydrogen(model, s, t):
     return model.d_H[s, t] <= model.k_H[s]
@@ -141,30 +118,12 @@ def x_hydrogen(model, s, t):
 model.x_h = Constraint(S, T, rule=x_hydrogen)
 
 
-def r_hydrogen_up(model, s, t):
-    if t == 0:
-        return Constraint.Skip
-    else:
-        return model.g_H[s, t] - model.g_H[s, t - 1] <= r_H * model.e_H[s]
-
-
-model.r_h_up = Constraint(S, T, rule=r_hydrogen_up)
-
-
-def r_hydrogen_down(model, s, t):
-    if t == 0:
-        return Constraint.Skip
-    else:
-        return model.g_H[s, t - 1] - model.g_H[s, t] <= r_H * model.e_H[s]
-
-
-model.r_h_down = Constraint(S, T, rule=r_hydrogen_down)
-
-
 # Solar PV constraint:
 def ub_g_solar(model, s, t):
-    return model.g_P[s, t] <= f_P[s, t] * model.k_P[s]
-
+    if run_all_station == 0:
+        return model.g_P[s, t] <= f_P_new[t] * model.k_P[s]
+    else:
+        return model.g_P[s, t] <= f_P[s, t] * model.k_P[s]
 
 model.ub_g_P = Constraint(S, T, rule=ub_g_solar)
 
@@ -173,28 +132,33 @@ model.ub_g_P = Constraint(S, T, rule=ub_g_solar)
 def ub_g_smr(model, s, t):
     return model.g_M[s, t] <= model.u_M[s] * k_M
 
-
 model.ub_g_M = Constraint(S, T, rule=ub_g_smr)
 
+def g_min_smr(model, s, t):
+    return model.g_M[s, t] >= model.u_M[s]*g_M_min
 
-def r_smr_up(model, s, t):
-    if t == 0:
-        return Constraint.Skip
-    else:
-        return model.g_M[s, t] - model.g_M[s, t - 1] <= r_M * k_M * model.u_M[s]
+model.ub_g_M_min = Constraint(S, T, rule=g_min_smr)
 
 
-model.r_m_up = Constraint(S, T, rule=r_smr_up)
+if ramping_const == 1:
+    def r_smr_up(model, s, t):
+        if t == 0:
+            return Constraint.Skip
+        else:
+            return model.g_M[s, t] - model.g_M[s, t - 1] <= r_M * k_M * model.u_M[s]
 
 
-def r_smr_down(model, s, t):
-    if t == 0:
-        return Constraint.Skip
-    else:
-        return model.g_M[s, t - 1] - model.g_M[s, t] <= r_M * k_M * model.u_M[s]
+    model.r_m_up = Constraint(S, T, rule=r_smr_up)
 
 
-model.r_m_down = Constraint(S, T, rule=r_smr_down)
+    def r_smr_down(model, s, t):
+        if t == 0:
+            return Constraint.Skip
+        else:
+            return model.g_M[s, t - 1] - model.g_M[s, t] <= r_M * k_M * model.u_M[s]
+
+
+    model.r_m_down = Constraint(S, T, rule=r_smr_down)
 
 
 # Wholesale power constraints:
@@ -214,8 +178,12 @@ model.trans_const = Constraint(S, rule=trans_line_limit)
 
 # Market clearing condition:
 def market_clearing(model, s, t):
-    return model.g_B[s, t] + model.g_H[s, t] + model.g_P[s, t] + model.g_M[s, t] \
-           + model.g_W[s, t] >= d_E[s, t] + model.d_B[s, t] + model.d_H[s, t]
+    if run_all_station == 0:
+        return model.g_B[s, t] + model.g_H[s, t] + model.g_P[s, t] + model.g_M[s, t] \
+               + model.g_W[s, t] >= d_E_new[t] + model.d_B[s, t] + model.d_H[s, t]
+    else:
+        return model.g_B[s, t] + model.g_H[s, t] + model.g_P[s, t] + model.g_M[s, t] \
+               + model.g_W[s, t] >= d_E[s, t] + model.d_B[s, t] + model.d_H[s, t]
 
 
 model.mc_const = Constraint(S, T, rule=market_clearing)
@@ -223,11 +191,18 @@ model.mc_const = Constraint(S, T, rule=market_clearing)
 
 # Objective function:
 def obj_function(model):
-    return sum(p_BK * model.k_B[s] + p_BC * model.e_B[s] + sum(p_BE * model.g_B[s, t] for t in T) for s in S) \
-           + sum(p_HK * model.k_H[s] + p_HC * model.e_H[s] + sum(p_HE * model.g_H[s, t] for t in T) for s in S) \
-           + sum(p_PK * model.k_P[s] + sum(p_PE * model.g_P[s, t] for t in T) for s in S) \
-           + sum(p_MK * model.u_M[s] * k_M + sum(p_ME * model.g_M[s, t] for t in T) for s in S) \
-           + sum(sum(p_WK * k_W[i] + (1 + p_WO) * (p_WI + p_WC[s, i] + p_WL) * l_W[s, i] * model.u_W[s, i] for i in I) + sum(p_WE[s, t] * model.g_W[s, t] for t in T) for s in S)
+    if run_all_station == 0:
+        return sum(p_BK * model.k_B[s] + p_BC * model.e_B[s] + sum(p_BE * model.g_B[s, t] for t in T) for s in S) \
+               + sum(p_HK * model.k_H[s] + p_HC * model.e_H[s] + sum(p_HE * model.g_H[s, t] for t in T) for s in S) \
+               + sum(p_PK * model.k_P[s] + sum(p_PE * model.g_P[s, t] for t in T) for s in S) \
+               + sum(p_MK * model.u_M[s] * k_M + sum(p_ME * model.g_M[s, t] for t in T) for s in S) \
+               + sum(sum(p_WK * k_W[i] + (1 + p_WO) * (p_WI + p_WC_new[i] + p_WL) * l_W_new[i] * model.u_W[s, i] for i in I) + sum(p_WE_new[t] * model.g_W[s, t] for t in T) for s in S)
+    elif run_all_station == 1:
+        return sum(p_BK * model.k_B[s] + p_BC * model.e_B[s] + sum(p_BE * model.g_B[s, t] for t in T) for s in S) \
+               + sum(p_HK * model.k_H[s] + p_HC * model.e_H[s] + sum(p_HE * model.g_H[s, t] for t in T) for s in S) \
+               + sum(p_PK * model.k_P[s] + sum(p_PE * model.g_P[s, t] for t in T) for s in S) \
+               + sum(p_MK * model.u_M[s] * k_M + sum(p_ME * model.g_M[s, t] for t in T) for s in S) \
+               + sum(sum(p_WK * k_W[i] + (1 + p_WO) * (p_WI + p_WC[s, i] + p_WL) * l_W[s, i] * model.u_W[s, i] for i in I) + sum(p_WE[s, t] * model.g_W[s, t] for t in T) for s in S)
 
 
 model.obj_func = Objective(rule=obj_function)
@@ -246,10 +221,9 @@ else:
     # Something else is wrong
     print('Solver Status: ', results.solver.status)
 
-print("--- %s seconds ---" % (time.time() - start_time))
 
 # %% Print variable outputs:
-print('Total Cost:', value(model.obj_func))
+total_cost = value(model.obj_func)
 
 k_B_star = np.zeros(station)
 k_H_star = np.zeros(station)
