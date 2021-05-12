@@ -15,10 +15,11 @@ ramping_const = 1       # ==1: ramping constraints for SMR activated, ==0: no ra
 
 # %% Specify model scope:
 first_station, last_station = 3, 5    # Range of stations to run. Pick numbers between 1 and 170, first_station <= last_station
-cap_class = 7           # Number of transmission capacity classes
-station = 170           # Number of charging stations
-hour = 8760             # Number of hours in a typical year
-day = 365               # Number of days in a typical year
+core_no = 6                           # Number of processors used
+cap_class = 7                         # Number of transmission capacity classes
+station = 170                         # Number of charging stations
+hour = 8760                           # Number of hours in a typical year
+day = 365                             # Number of days in a typical year
 
 # %% Model main parameters:
 
@@ -512,9 +513,9 @@ def hdv_model(station_no):
     del model
 
 if __name__ == "__main__":
-    station_no = [cs + 1 for cs in S_t]
+    station_no = [cs + 1 for cs in S_r]
 
-    pool = mp.Pool(8)
+    pool = mp.Pool(core_no)
     pool.map(hdv_model, S_t)
     pool.close()
     pool.join()
