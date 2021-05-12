@@ -205,7 +205,7 @@ def hdv_model(station_no):
 
     def ub_e_battery(model, s):
         return model.e_B[s] == model.k_B[s]*h_B
-    model.ub_e_B = Constraint(S, T, rule=ub_e_battery)
+    model.ub_e_B = Constraint(S, rule=ub_e_battery)
 
     def x_battery(model, s, t):
         if t == 0:

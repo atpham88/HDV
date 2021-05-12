@@ -208,7 +208,7 @@ for cs in S_r:
 
     def ub_e_battery(model, s):
         return model.e_B[s] == model.k_B[s]*h_B
-    model.ub_e_B = Constraint(S, T, rule=ub_e_battery)
+    model.ub_e_B = Constraint(S, rule=ub_e_battery)
 
     def x_battery(model, s, t):
         if t == 0:
@@ -221,21 +221,17 @@ for cs in S_r:
         return model.d_H[s, t] <= model.k_H[s]
     model.ub_d_H = Constraint(S, T, rule=ub_d_hydrogen)
 
-
     def ub_g_hydrogen(model, s, t):
         return model.g_H[s, t] <= model.k_H[s]
     model.ub_g_H = Constraint(S, T, rule=ub_g_hydrogen)
-
 
     def ub_g_x_hydrogen(model, s, t):
         return model.g_H[s, t] <= model.x_H[s, t]
     model.ub_g_x_H = Constraint(S, T, rule=ub_g_x_hydrogen)
 
-
     def ub_x_e_hydrogen(model, s, t):
         return model.x_H[s, t] <= model.e_H[s]
     model.ub_x_e_H = Constraint(S, T, rule=ub_x_e_hydrogen)
-
 
     def x_hydrogen(model, s, t):
         if t == 0:
