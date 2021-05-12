@@ -3,20 +3,20 @@ import numpy as np
 from pyomo.environ import *
 from pyomo.opt import SolverFactory
 import xlsxwriter as xw
-import multiprocessing as mp
-
 import time
 
 start_time = time.time()
 
 # %% Define Switches:
-super_comp = 1  # ==1: run on super computer, ==0: run on local laptop
-ramping_const = 1  # ==1: ramping constraints for SMR activated, ==0: no ramping constraints
+super_comp = 0                          # ==1: run on super computer, ==0: run on local laptop
+ramping_const = 1                       # ==1: ramping constraints for SMR activated, ==0: no ramping constraints
+
 # %% Specify model scope:
-cap_class = 7  # Number of transmission capacity classes
-station = 170  # Number of charging stations
-hour = 8760  # Number of hours in a typical year
-day = 365  # Number of days in a typical year
+first_station, last_station = 3, 5    # Range of stations to run. Pick numbers between 1 and 170, first_station <= last_station
+cap_class = 7                           # Number of transmission capacity classes
+station = 170                           # Number of charging stations
+hour = 8760                             # Number of hours in a typical year
+day = 365                               # Number of days in a typical year
 
 # %% Model main parameters:
 
@@ -24,46 +24,48 @@ day = 365  # Number of days in a typical year
 ir = 0.015
 
 # Battery:
-capex_B = 1455000  # Assuming 4hr moderate battery storage ($/MW)
-life_B = 15  # Battery life time (years)
-fixed_OM_B = 36370  # Fixed battery OM cost ($/MW-year)
-p_BC_fixed = 0.004  # Battery energy cost ($/kWh/h)
-p_BE = 0  # Battery operating cost ($/MW)
+capex_B = 1455000                       # Assuming 4hr moderate battery storage ($/MW)
+life_B = 15                             # Battery life time (years)
+fixed_OM_B = 36370                      # Fixed battery OM cost ($/MW-year)
+p_BC_fixed = 0                          # Battery energy cost ($/kWh/h)
+p_BE = 0                                # Battery operating cost ($/MW)
+h_B = 4                                 # Battery hours (hour)
 
 # H2:
-p_HK_fixed = 0.0148  # H2 capital cost ($/kW)
-p_HC_fixed = 1.47 * 10 ** (-6)  # Dowling et al ($/kWh/h)
-p_HE = 0  # H2 operating cost
+p_HK_fixed = 0.0148                     # H2 capital cost ($/kW)
+p_HC_fixed = 1.47*10**(-6)              # Dowling et al ($/kWh/h)
+p_HE = 0                                # H2 operating cost
 
 # SMR:
-r_M = 0.4  # Ramp rate for SMR (percentage of capacity)
-k_M = 60  # SMR capacity per module (MW)
-life_M = 40  # SMR life time (years)
-capex_M = 2616000  # SMR capex ($/MW)
-fixed_OM_M = 25000  # Fixed SMR OM cost ($/MW-year)
-var_OM_M = 0.75  # Variable OM cost ($/MWh)
-fuel_M = 8.71  # SMR fuel cost ($/MWh)
-g_M_min = 30  # SMR minimum stable load (MWh)
+r_M = 0.4                               # Ramp rate for SMR (percentage of capacity)
+k_M = 60                                # SMR capacity per module (MW)
+life_M = 40                             # SMR life time (years)
+capex_M = 2616000                       # SMR capex ($/MW)
+fixed_OM_M = 25000                      # Fixed SMR OM cost ($/MW-year)
+var_OM_M = 0.75                         # Variable OM cost ($/MWh)
+fuel_M = 8.71                           # SMR fuel cost ($/MWh)
+g_M_min = 30                            # SMR minimum stable load (MWh)
 
 # Solar:
-capex_P = 1354000  # Solar capex ($/MW)
-life_P = 30  # Solar PV life time (years)
-fixed_OM_P = 19000  # Fixed solar OM cost ($/MW-year)
-p_PE = 0  # Solar operating cost
+capex_P = 1354000                       # Solar capex ($/MW)
+life_P = 30                             # Solar PV life time (years)
+fixed_OM_P = 19000                      # Fixed solar OM cost ($/MW-year)
+p_PE = 0                                # Solar operating cost
 
 # Transmission:
-p_WK = 100000  # Transmission capacity cost ($/MW-year)
-p_WO = 0.1  # Transmission over-head cost (percentage)
-p_WI = 50000  # Transmission infrastructure cost
-p_WL = 200000  # Land cost
+p_WK = 100000                           # Transmission capacity cost ($/MW-year)
+p_WO = 0.1                              # Transmission over-head cost (percentage)
+p_WI = 50000                            # Transmission infrastructure cost
+p_WL = 200000                           # Land cost
+
 
 # %% Set working directory:
 if super_comp == 1:
-    model_dir = '/storage/work/a/akp5369/Model_in_Python/HDV/Data/'
+    model_dir = '/home/anph/projects/HDV/Data/'
     load_folder = 'load_station/'
     solar_folder = 'solar/'
     trans_folder = 'transmission/'
-    results_folder = '/storage/work/a/akp5369/Model_in_Python/HDV/Results/'
+    results_folder = '/home/anph/projects/HDV/Results/'
 else:
     model_dir = 'C:\\Users\\atpha\\Documents\\Postdocs\\Projects\\HDV\\Data\\'
     load_folder = 'load_station\\'
@@ -71,18 +73,21 @@ else:
     trans_folder = 'transmission\\'
     results_folder = 'C:\\Users\\atpha\\Documents\\Postdocs\\Projects\\HDV\\Results\\'
 
+
 # %% Define set:
 no_station_to_run = 1
 
-I = list(range(cap_class))  # Set of transmission capacity classes
-S = list(range(no_station_to_run))  # Set of charging stations to run
-T = list(range(hour))  # Set of hours to run
-S_t = list(range(station))  # Set of total charging stations
+I = list(range(cap_class))                              # Set of transmission capacity classes
+S = list(range(no_station_to_run))                      # Set of charging stations to run
+T = list(range(hour))                                   # Set of hours to run
+S_t = list(range(station))                              # Set of total charging stations
+S_r = list(range(first_station-1, last_station))        # Set of charging stations to run
 
 # %% Import and calculate data input:
 # Load station number:
+for cs in S_r:
+    station_no = cs + 1                 
 
-def hdv_model(station_no):
     # %% Set model type - Concrete Model:
     model = ConcreteModel(name="HDV_model")
 
@@ -114,7 +119,7 @@ def hdv_model(station_no):
 
     # Whole number variables:
     model.u_M = Var(S, within=NonNegativeIntegers)  # Number of SMR modules built
-    model.u_W = Var(S, I, within=Binary)  # Whether a transmission line is built or not
+    model.u_W = Var(S, I, within=Binary)            # Whether a transmission line is built or not
 
     # Load data:
     load_data_raw = pd.read_csv(model_dir + load_folder + "TM2012_SPNation_TF-1_PT1_DPs1_BS1000_CP500_TD1_BD1_VW1_station.csv", header=None)
@@ -127,18 +132,18 @@ def hdv_model(station_no):
         d_E[t] = d_E_temp[station_no - 1, t]
 
     # Battery:
-    CRF_B = ir / (1 - (1 + ir) ** (-life_B))  # Calculate battery capital recovery factor
-    p_BK = capex_B * CRF_B + fixed_OM_B  # Battery power rating cost
-    p_BC = p_BC_fixed * 1000 * 8760  # Battery energy cost ($/MWh)
+    CRF_B = ir / (1 - (1 + ir) ** (-life_B))        # Calculate battery capital recovery factor
+    p_BK = capex_B * CRF_B + fixed_OM_B             # Battery power rating cost
+    p_BC = p_BC_fixed * 1000 * 8760                 # Battery energy cost ($/MWh)
 
     # H2:
-    p_HK = p_HK_fixed * 1000 * 8760  # H2 power capacity cost
-    p_HC = p_HC_fixed * 1000 * 8760  # H2 energy capacity cost
+    p_HK = p_HK_fixed * 1000 * 8760                 # H2 power capacity cost
+    p_HC = p_HC_fixed * 1000 * 8760                 # H2 energy capacity cost
 
     # SMR:
     CRF_M = ir / (1 - (1 + ir) ** (-life_M))
-    p_MK = capex_M * CRF_M + fixed_OM_M  # SMR capital cost
-    p_ME = var_OM_M + fuel_M  # SMR operating cost ($/MWh)
+    p_MK = capex_M * CRF_M + fixed_OM_M             # SMR capital cost
+    p_ME = var_OM_M + fuel_M                        # SMR operating cost ($/MWh)
 
     # Solar data:
     solar_data = model_dir + solar_folder + "solar.xlsx"
@@ -151,14 +156,14 @@ def hdv_model(station_no):
         f_P[t] = f_P_temp[station_no - 1, t]
 
     CRF_P = ir / (1 - (1 + ir) ** (-life_P))
-    p_PK = capex_P * CRF_P + fixed_OM_P  # solar annualized capacity cost
+    p_PK = capex_P * CRF_P + fixed_OM_P                         # solar annualized capacity cost
 
     # Transmission data:
     transmission_data = model_dir + trans_folder + "transmission.xlsx"
     k_W_temp = pd.DataFrame(pd.read_excel(transmission_data, "transmission capacity")).to_dict()
-    k_W = k_W_temp['trans cap']  # effective transmission capacity
+    k_W = k_W_temp['trans cap']                                 # effective transmission capacity
 
-    p_WC_temp = pd.DataFrame(pd.read_excel(transmission_data, "conductor cost"))  # conductor cost
+    p_WC_temp = pd.DataFrame(pd.read_excel(transmission_data, "conductor cost"))    # conductor cost
     p_WC_temp2 = {(r, c): p_WC_temp.at[r, c] for r in S_t for c in I}
 
     l_W_temp = pd.DataFrame(pd.read_excel(transmission_data, "trans line length"))  # transmission line length
@@ -178,74 +183,57 @@ def hdv_model(station_no):
     for t in T:
         p_WE[t] = p_WE_temp[station_no - 1, t]
 
-
     # %% Formulate constraints and  objective functions:
 
     # Constraints:
     # Battery constraints:
     def ub_d_battery(model, s, t):
         return model.d_B[s, t] <= model.k_B[s]
-
-
     model.ub_d_B = Constraint(S, T, rule=ub_d_battery)
 
 
     def ub_g_battery(model, s, t):
         return model.g_B[s, t] <= model.k_B[s]
-
-
     model.ub_g_B = Constraint(S, T, rule=ub_g_battery)
 
 
     def ub_g_x_battery(model, s, t):
         return model.g_B[s, t] <= model.x_B[s, t]
-
-
     model.ub_g_x_B = Constraint(S, T, rule=ub_g_x_battery)
 
 
     def ub_x_e_battery(model, s, t):
         return model.x_B[s, t] <= model.e_B[s]
-
-
     model.ub_x_e_B = Constraint(S, T, rule=ub_x_e_battery)
 
+    def ub_e_battery(model, s):
+        return model.e_B[s] == model.k_B[s]*h_B
+    model.ub_e_B = Constraint(S, T, rule=ub_e_battery)
 
     def x_battery(model, s, t):
         if t == 0:
             return model.x_B[s, t] == 0.5 * model.e_B[s]  # here needs to specify initial SOC conditions
         return model.x_B[s, t] == model.x_B[s, t - 1] + model.d_B[s, t] - model.g_B[s, t]
-
-
     model.x_b = Constraint(S, T, rule=x_battery)
-
 
     # H2 constraints:
     def ub_d_hydrogen(model, s, t):
         return model.d_H[s, t] <= model.k_H[s]
-
-
     model.ub_d_H = Constraint(S, T, rule=ub_d_hydrogen)
 
 
     def ub_g_hydrogen(model, s, t):
         return model.g_H[s, t] <= model.k_H[s]
-
-
     model.ub_g_H = Constraint(S, T, rule=ub_g_hydrogen)
 
 
     def ub_g_x_hydrogen(model, s, t):
         return model.g_H[s, t] <= model.x_H[s, t]
-
-
     model.ub_g_x_H = Constraint(S, T, rule=ub_g_x_hydrogen)
 
 
     def ub_x_e_hydrogen(model, s, t):
         return model.x_H[s, t] <= model.e_H[s]
-
-
     model.ub_x_e_H = Constraint(S, T, rule=ub_x_e_hydrogen)
 
 
@@ -253,31 +241,20 @@ def hdv_model(station_no):
         if t == 0:
             return model.x_H[s, t] == 0.5 * model.e_H[s]
         return model.x_H[s, t] == model.x_H[s, t - 1] + model.d_H[s, t] - model.g_H[s, t]
-
-
     model.x_h = Constraint(S, T, rule=x_hydrogen)
-
 
     # Solar PV constraint:
     def ub_g_solar(model, s, t):
         return model.g_P[s, t] <= f_P[t] * model.k_P[s]
-
-
     model.ub_g_P = Constraint(S, T, rule=ub_g_solar)
-
 
     # SMR constraints:
     def ub_g_smr(model, s, t):
         return model.g_M[s, t] <= model.u_M[s] * k_M
-
-
     model.ub_g_M = Constraint(S, T, rule=ub_g_smr)
 
-
     def g_min_smr(model, s, t):
-        return model.g_M[s, t] >= model.u_M[s] * g_M_min
-
-
+        return model.g_M[s, t] >= model.u_M[s]*g_M_min
     model.ub_g_M_min = Constraint(S, T, rule=g_min_smr)
 
     if ramping_const == 1:
@@ -286,8 +263,6 @@ def hdv_model(station_no):
                 return Constraint.Skip
             else:
                 return model.g_M[s, t] - model.g_M[s, t - 1] <= r_M * k_M * model.u_M[s]
-
-
         model.r_m_up = Constraint(S, T, rule=r_smr_up)
 
 
@@ -296,34 +271,22 @@ def hdv_model(station_no):
                 return Constraint.Skip
             else:
                 return model.g_M[s, t - 1] - model.g_M[s, t] <= r_M * k_M * model.u_M[s]
-
-
         model.r_m_down = Constraint(S, T, rule=r_smr_down)
-
 
     # Wholesale power constraints:
     def ub_g_wholesale(model, s, t):
         return model.g_W[s, t] <= sum(model.u_W[s, i] * k_W[i] for i in I)
-
-
     model.ub_g_W = Constraint(S, T, rule=ub_g_wholesale)
-
 
     def trans_line_limit(model, s):
         return sum(model.u_W[s, i] for i in I) <= 1
-
-
     model.trans_const = Constraint(S, rule=trans_line_limit)
-
 
     # Market clearing condition:
     def market_clearing(model, s, t):
         return model.g_B[s, t] + model.g_H[s, t] + model.g_P[s, t] + model.g_M[s, t] \
                + model.g_W[s, t] >= d_E[t] + model.d_B[s, t] + model.d_H[s, t]
-
-
     model.mc_const = Constraint(S, T, rule=market_clearing)
-
 
     # Objective function:
     def obj_function(model):
@@ -332,15 +295,13 @@ def hdv_model(station_no):
                + sum(p_PK * model.k_P[s] + sum(p_PE * model.g_P[s, t] for t in T) for s in S) \
                + sum(p_MK * model.u_M[s] * k_M + sum(p_ME * model.g_M[s, t] for t in T) for s in S) \
                + sum(sum(p_WK * k_W[i] + (1 + p_WO) * (p_WI + p_WC[i] + p_WL) * l_W[i] * model.u_W[s, i] for i in I) + sum(p_WE[t] * model.g_W[s, t] for t in T) for s in S)
-
-
     model.obj_func = Objective(rule=obj_function)
 
     # %% Solve HDV model:
     # model.dual = Suffix(direction=Suffix.IMPORT_EXPORT)
     solver = SolverFactory('cplex')
     results = solver.solve(model, tee=True)
-    # model.pprint()
+    model.pprint()
 
     if (results.solver.status == SolverStatus.ok) and (results.solver.termination_condition == TerminationCondition.optimal):
         print('Solution is feasible')
@@ -416,7 +377,7 @@ def hdv_model(station_no):
     class_number = [''] * cap_class
 
     for s in S:
-        station_number[s] = "station " + str(station_no)
+        station_number[s] = "station " + str(S[s] + 1)
 
     for t in T:
         hour_number[t] = "hour " + str(T[t] + 1)
@@ -556,14 +517,7 @@ def hdv_model(station_no):
             result_sheet_hs.write(item_1 + 1, item_2 + 1, x_H_star[item_1, item_2])
 
     results_book.close()
+
     del model
-
-if __name__ =="__main__":
-    station_no = [cs + 1  for cs in S_t]
-
-    pool = mp.Pool(8)
-    pool.map(hdv_model, S_t)
-    pool.close()
-    pool.join()
 
 print("--- %s seconds ---" % (time.time() - start_time))
