@@ -27,4 +27,4 @@ def transmission_data(model_dir, trans_folder, S_t, T, I, cap_class, station_no,
     for t in T:
         p_WE[t] = p_WE_temp[station_no - 1, t]
 
-    return (l_W, k_W, p_WC, p_WE)
+    return l_W, k_W, p_WC, p_WE

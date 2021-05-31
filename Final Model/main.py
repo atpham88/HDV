@@ -23,7 +23,7 @@ def main_params():
     load_pr_case = 1                        # ==1: 170 stations, ==2: 161 stations, ==3: 152 stations
 
     # Specify model scope:
-    first_station, last_station = 3, 3      # Range of stations to run. Pick numbers between 1 and 170/161/152, first_station <= last_station
+    first_station, last_station = 4, 4      # Range of stations to run. Pick numbers between 1 and 170/161/152, first_station <= last_station
     cap_class = 7                           # Number of transmission capacity classes
     hour = 8760                             # Number of hours in a typical year
     day = 365                               # Number of days in a typical year
@@ -111,7 +111,7 @@ def working_directory(super_comp):
         solar_folder = 'solar\\'
         trans_folder = 'transmission\\'
         results_folder = 'C:\\Users\\atpha\\Documents\\Postdocs\\Projects\\HDV\\Results\\'
-    return (model_dir, load_folder, solar_folder, trans_folder, results_folder)
+    return model_dir, load_folder, solar_folder, trans_folder, results_folder
 
 
 # %% Define set:
@@ -121,7 +121,7 @@ def main_sets(no_station_to_run, cap_class, hour, station, first_station):
     T = list(range(hour))                                   # Set of hours to run
     S_t = list(range(station))                              # Set of total charging stations
     S_r = list(range(first_station-1, first_station))       # Set of charging stations to run
-    return (I, S, T, S_t, S_r)
+    return I, S, T, S_t, S_r
 
 
 # %% Solving HDV model:
@@ -135,11 +135,13 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
         # %% Set model type - Concrete Model:
         model = ConcreteModel(name="HDV_model")
         station_no = cs + 1
+
         # Load data:
         d_E = load_data(model_dir, load_folder, S_t, T, hour, day, station_no)
         type(d_E)
+
         # Storage:
-        (p_BK, p_BC, p_HK, p_HC) = storage_data(ir,life_B,capex_B,fixed_OM_B,p_BC_fixed, p_HK_fixed, p_HC_fixed)
+        (p_BK, p_BC, p_HK, p_HC) = storage_data(ir, life_B, capex_B, fixed_OM_B, p_BC_fixed, p_HK_fixed, p_HC_fixed)
 
         # SMR:
         (p_MK, p_ME) = SMR_data(ir, life_M, capex_M, fixed_OM_M, var_OM_M, fuel_M)
@@ -149,7 +151,6 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
 
         # Transmission data:
         (l_W, k_W, p_WC, p_WE) = transmission_data(model_dir, trans_folder, S_t, T, I, cap_class, station_no, day, hour)
-
 
         # %% Define variables:
         # Power rating by technology:
@@ -188,16 +189,13 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
             return model.d_B[s, t] <= model.k_B[s]
         model.ub_d_B = Constraint(S, T, rule=ub_d_battery)
 
-
         def ub_g_battery(model, s, t):
             return model.g_B[s, t] <= model.k_B[s]
         model.ub_g_B = Constraint(S, T, rule=ub_g_battery)
 
-
         def ub_g_x_battery(model, s, t):
             return model.g_B[s, t] <= model.x_B[s, t]
         model.ub_g_x_B = Constraint(S, T, rule=ub_g_x_battery)
-
 
         def ub_x_e_battery(model, s, t):
             return model.x_B[s, t] <= model.e_B[s]
@@ -306,24 +304,8 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
 
         # Print variable outputs:
         total_cost = value(model.obj_func)
-
-        k_B_star = np.zeros(station)
-        k_H_star = np.zeros(station)
-        k_P_star = np.zeros(station)
-        e_B_star = np.zeros(station)
-        e_H_star = np.zeros(station)
-        u_M_star = np.zeros(station)
-
-        g_B_star = np.zeros((station, hour))
-        g_H_star = np.zeros((station, hour))
-        g_P_star = np.zeros((station, hour))
-        g_M_star = np.zeros((station, hour))
-        g_W_star = np.zeros((station, hour))
-        d_B_star = np.zeros((station, hour))
-        d_H_star = np.zeros((station, hour))
-        x_B_star = np.zeros((station, hour))
-        x_H_star = np.zeros((station, hour))
-
+        k_B_star = k_H_star = k_P_star = e_B_star = e_H_star = u_M_star = np.zeros(station)
+        g_B_star = g_H_star = g_P_star = g_M_star = g_W_star = d_B_star = d_H_star = x_B_star = x_H_star = np.zeros((station, hour))
         u_W_star = np.zeros((station, cap_class))
 
         for s in S:

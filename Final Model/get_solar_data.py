@@ -14,4 +14,4 @@ def solar_data(model_dir, solar_folder, S_t, T, station_no, hour, ir, life_P, ca
 
     CRF_P = ir / (1 - (1 + ir) ** (-life_P))
     p_PK = capex_P * CRF_P + fixed_OM_P  # solar annualized capacity cost
-    return (f_P, p_PK)
+    return f_P, p_PK
