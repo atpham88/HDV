@@ -516,7 +516,7 @@ if __name__ == "__main__":
     station_no = [cs + 1 for cs in S_r]
 
     pool = mp.Pool(core_no)
-    pool.map(hdv_model, S_t)
+    pool.map(hdv_model, S_r)
     pool.close()
     pool.join()
 
