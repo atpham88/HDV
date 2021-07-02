@@ -6,6 +6,7 @@ Updated 05/31/2021
 import numpy as np
 from pyomo.environ import *
 from pyomo.opt import SolverFactory
+import time
 
 from get_storage_data import storage_data
 from get_SMR_data import SMR_data
@@ -14,6 +15,7 @@ from get_load_data import load_data
 from get_transmission_data import transmission_data
 import xlsxwriter as xw
 
+start_time = time.time()
 
 # %% Main parameters:
 def main_params():
@@ -23,7 +25,7 @@ def main_params():
     load_pr_case = 1                        # ==1: 170 stations, ==2: 161 stations, ==3: 152 stations
 
     # Specify model scope:
-    first_station, last_station = 4, 4      # Range of stations to run. Pick numbers between 1 and 170/161/152, first_station <= last_station
+    first_station, last_station = 148, 148      # Range of stations to run. Pick numbers between 1 and 170/161/152, first_station <= last_station
     cap_class = 7                           # Number of transmission capacity classes
     hour = 8760                             # Number of hours in a typical year
     day = 365                               # Number of days in a typical year
@@ -39,7 +41,7 @@ def main_params():
     no_station_to_run = 1                   # Don't change this. We only run one station at a time
 
     # Model main parameters:
-    ir = 0.015                              # Interest rate:
+    ir = 0.015                              # Interest rate
 
     # Battery:
     capex_B = 1455000                       # Assuming 4hr moderate battery storage ($/MW)
@@ -88,7 +90,7 @@ def main_function():
 
     (model_dir, load_folder, solar_folder, trans_folder, results_folder) = working_directory(super_comp)
 
-    (I, S, T, S_t, S_r) = main_sets(no_station_to_run, cap_class, hour, station, first_station)
+    (I, S, T, S_t, S_r) = main_sets(no_station_to_run, cap_class, hour, station, first_station, last_station)
 
     model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar_folder, trans_folder,
                 station, cap_class, load_pr_case, hour, day, ir, capex_B, fixed_OM_B, p_BC_fixed, life_B,
@@ -115,12 +117,12 @@ def working_directory(super_comp):
 
 
 # %% Define set:
-def main_sets(no_station_to_run, cap_class, hour, station, first_station):
+def main_sets(no_station_to_run, cap_class, hour, station, first_station, last_station):
     I = list(range(cap_class))                              # Set of transmission capacity classes
     S = list(range(no_station_to_run))                      # Set of charging stations to run
     T = list(range(hour))                                   # Set of hours to run
     S_t = list(range(station))                              # Set of total charging stations
-    S_r = list(range(first_station-1, first_station))       # Set of charging stations to run
+    S_r = list(range(first_station-1, last_station))       # Set of charging stations to run
     return I, S, T, S_t, S_r
 
 
@@ -509,3 +511,5 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
         del model
 
 main_function()
+
+print("--- %s seconds ---" % (time.time() - start_time))
