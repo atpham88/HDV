@@ -23,6 +23,7 @@ def main_params():
     super_comp = 0                          # ==1: run on super computer, ==0: run on local laptop
     ramping_const = 1                       # ==1: ramping constraints for SMR activated, ==0: no ramping constraints
     load_pr_case = 1                        # ==1: 170 stations, ==2: 161 stations, ==3: 152 stations
+    inc_h2_demand = 1                       # ==1: include hydrogen demand, ==0: no hydrogen demand
 
     # Specify model scope:
     first_station, last_station = 148, 148      # Range of stations to run. Pick numbers between 1 and 170/161/152, first_station <= last_station
@@ -78,24 +79,24 @@ def main_params():
     p_WI = 50000                            # Transmission infrastructure cost
     p_WL = 200000                           # Land cost
 
-    return (super_comp, ramping_const, load_pr_case, first_station, last_station, cap_class, hour, day, station, no_station_to_run,
-            ir, capex_B, life_B, fixed_OM_B, p_BC_fixed, p_BE, h_B, p_HK_fixed, p_HC_fixed, p_HE, r_M, k_M, life_M, capex_M,
-            fixed_OM_M, var_OM_M, fuel_M, g_M_min, capex_P, life_P, fixed_OM_P, p_PE, p_WK, p_WO, p_WI, p_WL)
+    return (super_comp, ramping_const, load_pr_case, inc_h2_demand, first_station, last_station, cap_class, hour, day, station,
+            no_station_to_run, ir, capex_B, life_B, fixed_OM_B, p_BC_fixed, p_BE, h_B, p_HK_fixed, p_HC_fixed, p_HE, r_M, k_M,
+            life_M, capex_M, fixed_OM_M, var_OM_M, fuel_M, g_M_min, capex_P, life_P, fixed_OM_P, p_PE, p_WK, p_WO, p_WI, p_WL)
 
 
 def main_function():
-    (super_comp, ramping_const, load_pr_case, first_station, last_station, cap_class, hour, day, station, no_station_to_run,
-     ir, capex_B, life_B, fixed_OM_B, p_BC_fixed, p_BE, h_B, p_HK_fixed, p_HC_fixed, p_HE, r_M, k_M, life_M, capex_M,
-     fixed_OM_M, var_OM_M, fuel_M, g_M_min, capex_P, life_P, fixed_OM_P, p_PE, p_WK, p_WO, p_WI, p_WL) = main_params()
+    (super_comp, ramping_const, load_pr_case, inc_h2_demand, first_station, last_station, cap_class, hour, day, station,
+     no_station_to_run, ir, capex_B, life_B, fixed_OM_B, p_BC_fixed, p_BE, h_B, p_HK_fixed, p_HC_fixed, p_HE, r_M, k_M,
+     life_M, capex_M, fixed_OM_M, var_OM_M, fuel_M, g_M_min, capex_P, life_P, fixed_OM_P, p_PE, p_WK, p_WO, p_WI, p_WL) = main_params()
 
     (model_dir, load_folder, solar_folder, trans_folder, results_folder) = working_directory(super_comp)
 
     (I, S, T, S_t, S_r) = main_sets(no_station_to_run, cap_class, hour, station, first_station, last_station)
 
     model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar_folder, trans_folder,
-                station, cap_class, load_pr_case, hour, day, ir, capex_B, fixed_OM_B, p_BC_fixed, life_B,
-                p_HK_fixed, p_HC_fixed, capex_M, life_M, fixed_OM_M, var_OM_M, fuel_M,
-                life_P, capex_P, fixed_OM_P, ramping_const, k_M, g_M_min, h_B, r_M,
+                station, cap_class, load_pr_case, inc_h2_demand, hour, day, ir, capex_B, fixed_OM_B,
+                p_BC_fixed, life_B, p_HK_fixed, p_HC_fixed, capex_M, life_M, fixed_OM_M, var_OM_M,
+                fuel_M, life_P, capex_P, fixed_OM_P, ramping_const, k_M, g_M_min, h_B, r_M,
                 p_WK, p_WO, p_WL, p_BE, p_HE, p_WI, p_PE)
 
 
@@ -128,9 +129,9 @@ def main_sets(no_station_to_run, cap_class, hour, station, first_station, last_s
 
 # %% Solving HDV model:
 def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar_folder, trans_folder,
-                station, cap_class, load_pr_case, hour, day, ir, capex_B, fixed_OM_B, p_BC_fixed, life_B,
-                p_HK_fixed, p_HC_fixed, capex_M, life_M, fixed_OM_M, var_OM_M, fuel_M,
-                life_P, capex_P, fixed_OM_P, ramping_const, k_M, g_M_min, h_B, r_M,
+                station, cap_class, load_pr_case, inc_h2_demand, hour, day, ir, capex_B, fixed_OM_B,
+                p_BC_fixed, life_B, p_HK_fixed, p_HC_fixed, capex_M, life_M, fixed_OM_M, var_OM_M,
+                fuel_M, life_P, capex_P, fixed_OM_P, ramping_const, k_M, g_M_min, h_B, r_M,
                 p_WK, p_WO, p_WL, p_BE, p_HE, p_WI, p_PE):
 
     for cs in S_r:
@@ -138,7 +139,7 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
         model = ConcreteModel(name="HDV_model")
         station_no = cs + 1
         # Load data:
-        d_E = load_data(model_dir, load_folder, S_t, T, hour, day, station_no, load_pr_case)
+        (d_E, d_H_bar) = load_data(model_dir, load_folder, S_t, T, hour, day, station_no, load_pr_case, inc_h2_demand)
         type(d_E)
         # Storage:
         (p_BK, p_BC, p_HK, p_HC) = storage_data(ir, life_B, capex_B, fixed_OM_B, p_BC_fixed, p_HK_fixed, p_HC_fixed)
@@ -234,6 +235,11 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
             return model.x_H[s, t] == model.x_H[s, t - 1] + model.d_H[s, t] - model.g_H[s, t]
         model.x_h = Constraint(S, T, rule=x_hydrogen)
 
+        if inc_h2_demand == 1:
+            def d_hydrogen(model, s, t):
+                return model.g_H[s, t] >= d_H_bar[t]
+            model.d_H_bar = Constraint(S, T, rule=d_hydrogen)
+
         # Solar PV constraint:
         def ub_g_solar(model, s, t):
             return model.g_P[s, t] <= f_P[t] * model.k_P[s]
@@ -276,7 +282,7 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
         # Market clearing condition:
         def market_clearing(model, s, t):
             return model.g_B[s, t] + model.g_H[s, t] + model.g_P[s, t] + model.g_M[s, t] \
-                   + model.g_W[s, t] >= d_E[t] + model.d_B[s, t] + model.d_H[s, t]
+                   + model.g_W[s, t] >= d_E[t] - d_H_bar[t] + model.d_B[s, t] + model.d_H[s, t]
         model.mc_const = Constraint(S, T, rule=market_clearing)
 
         # Objective function:
