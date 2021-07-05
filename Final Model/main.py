@@ -150,7 +150,7 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
         (f_P, p_PK) = solar_data(model_dir, solar_folder, S_t, T, station_no, hour, ir, life_P, capex_P, fixed_OM_P, load_pr_case)
 
         # Transmission data:
-        (l_W, k_W, p_WC, p_WE) = transmission_data(model_dir, trans_folder, S_t, T, I, cap_class, station_no, day, hour)
+        (l_W, k_W, p_WC, p_WE) = transmission_data(model_dir, trans_folder, S_t, T, I, cap_class, station_no, day, hour, load_pr_case)
 
         # %% Define variables:
         # Power rating by technology:
