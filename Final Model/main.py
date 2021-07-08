@@ -1,6 +1,6 @@
 """
 An Pham
-Updated 05/31/2021
+Updated 07/05/2021
 """
 
 import numpy as np
@@ -282,7 +282,7 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
         # Market clearing condition:
         def market_clearing(model, s, t):
             return model.g_B[s, t] + model.g_H[s, t] + model.g_P[s, t] + model.g_M[s, t] \
-                   + model.g_W[s, t] >= d_E[t] - d_H_bar[t] + model.d_B[s, t] + model.d_H[s, t]
+                   + model.g_W[s, t] >= d_E[t] + model.d_B[s, t] + model.d_H[s, t]
         model.mc_const = Constraint(S, T, rule=market_clearing)
 
         # Objective function:
