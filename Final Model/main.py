@@ -17,6 +17,8 @@ import xlsxwriter as xw
 
 start_time = time.time()
 
+# A comment
+
 # %% Main parameters:
 def main_params():
     # Define Switches:
