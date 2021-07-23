@@ -222,31 +222,31 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
         model.x_b = Constraint(S, T, rule=x_battery)
 
         # H2 constraints:
-        def ub_d_hydrogen(model, s, t):
-            return model.d_H[s, t] <= model.k_H[s]
-        model.ub_d_H = Constraint(S, T, rule=ub_d_hydrogen)
-
-        def ub_g_hydrogen(model, s, t):
-            return model.g_H[s, t] <= model.k_H[s]
-        model.ub_g_H = Constraint(S, T, rule=ub_g_hydrogen)
-
-        def ub_g_x_hydrogen(model, s, t):
-            return model.g_H[s, t] <= model.x_H[s, t]
-        model.ub_g_x_H = Constraint(S, T, rule=ub_g_x_hydrogen)
-
-        def ub_x_e_hydrogen(model, s, t):
-            return model.x_H[s, t] <= model.e_H[s]
-        model.ub_x_e_H = Constraint(S, T, rule=ub_x_e_hydrogen)
-
-        def x_hydrogen(model, s, t):
-            if t == 0:
-                return model.x_H[s, t] == 0.5 * model.e_H[s]
-            return model.x_H[s, t] == model.x_H[s, t - 1] + model.d_H[s, t] - model.g_H[s, t]
-        model.x_h = Constraint(S, T, rule=x_hydrogen)
-
         if inc_h2_demand == 1:
+            def ub_d_hydrogen(model, s, t):
+                return model.d_H[s, t] <= model.k_H[s]
+            model.ub_d_H = Constraint(S, T, rule=ub_d_hydrogen)
+
+            def ub_g_hydrogen(model, s, t):
+                return model.g_H[s, t] <= model.k_H[s]
+            model.ub_g_H = Constraint(S, T, rule=ub_g_hydrogen)
+
+            def ub_g_x_hydrogen(model, s, t):
+                return model.g_H[s, t] <= model.x_H[s, t]
+            model.ub_g_x_H = Constraint(S, T, rule=ub_g_x_hydrogen)
+
+            def ub_x_e_hydrogen(model, s, t):
+                return model.x_H[s, t] <= model.e_H[s]
+            model.ub_x_e_H = Constraint(S, T, rule=ub_x_e_hydrogen)
+
+            def x_hydrogen(model, s, t):
+                if t == 0:
+                    return model.x_H[s, t] == 0.5 * model.e_H[s]
+                return model.x_H[s, t] == model.x_H[s, t - 1] + model.d_H[s, t] - model.g_H[s, t]
+            model.x_h = Constraint(S, T, rule=x_hydrogen)
+
             def d_hydrogen(model, s, t):
-                return model.g_H[s, t] >= d_H_bar[t]
+                return model.g_H[s, t] >= d_H_bar[t] + model.d_H[s, t]
             model.d_H_bar = Constraint(S, T, rule=d_hydrogen)
 
         # Solar PV constraint:
@@ -289,11 +289,8 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
 
         # Market clearing condition:
         def market_clearing(model, s, t):
-            if inc_h2_demand == 0:
-                return model.g_B[s, t] + model.g_H[s, t] + model.g_P[s, t] + model.g_M[s, t] \
-                       + model.g_W[s, t] >= d_E[t] + model.d_B[s, t] + model.d_H[s, t]
-            elif inc_h2_demand == 1:
-                return model.g_B[s, t] + model.g_P[s, t] + model.g_M[s, t] + model.g_W[s, t] >= d_E[t] + model.d_B[s, t]
+            return model.g_B[s, t] + model.g_P[s, t] + model.g_M[s, t] \
+                       + model.g_W[s, t] >= d_E[t] + model.d_B[s, t]
         model.mc_const = Constraint(S, T, rule=market_clearing)
 
         # Objective function:
@@ -352,14 +349,15 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
         for s in S:
             for t in T:
                 g_B_star[s, t] = value(model.g_B[s, t])
-                g_H_star[s, t] = value(model.g_H[s, t])
+                if inc_h2_demand == 1:
+                    g_H_star[s, t] = value(model.g_H[s, t])
+                    d_H_star[s, t] = value(model.d_H[s, t])
+                    x_H_star[s, t] = value(model.x_H[s, t])
                 g_P_star[s, t] = value(model.g_P[s, t])
                 g_M_star[s, t] = value(model.g_M[s, t])
                 g_W_star[s, t] = value(model.g_W[s, t])
                 d_B_star[s, t] = value(model.d_B[s, t])
-                d_H_star[s, t] = value(model.d_H[s, t])
                 x_B_star[s, t] = value(model.x_B[s, t])
-                x_H_star[s, t] = value(model.x_H[s, t])
 
         for s in S:
             for i in I:
