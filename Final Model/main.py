@@ -1,6 +1,6 @@
 """
 An Pham
-Updated 07/05/2021
+Updated 07/23/2021
 """
 
 import numpy as np
@@ -23,7 +23,7 @@ def main_params():
     super_comp = 0                          # ==1: run on super computer, ==0: run on local laptop
     ramping_const = 1                       # ==1: ramping constraints for SMR activated, ==0: no ramping constraints
     load_pr_case = 1                        # ==1: 170 stations, ==2: 161 stations, ==3: 152 stations
-    inc_h2_demand = 0                       # ==1: include hydrogen demand, ==0: no hydrogen demand
+    inc_h2_demand = 1                       # ==1: include hydrogen demand, ==0: no hydrogen demand
 
     # Specify model scope:
     first_station, last_station = 148, 148      # Range of stations to run. Pick numbers between 1 and 170/161/152, first_station <= last_station
@@ -54,8 +54,9 @@ def main_params():
     # Hydrogen:
     h2_demand_p = 0.2                       # Percentage of electricity demand that comes from H2
     h2_convert = 0.0493                     # Tianyi's number
-    p_HK_fixed = 0.0148                     # H2 capital cost ($/kW)
-    p_HC_fixed = 1.47*10**(-6)              # Dowling et al ($/kWh/h)
+    hhv = 39.4                              # Tianyi's slides (also same as Dowling et al.)
+    p_HK_fixed = 0.0148                     # H2 capital cost ($/kW) from Dowling et al ($/kWh/h)
+    p_HC_fixed = 1.47*10**(-6)              # H2 energy cost ($/kW) from Dowling et al ($/kWh/h)
     p_HE = 0                                # H2 operating cost
 
     # SMR:
@@ -87,13 +88,15 @@ def main_params():
 
     return (super_comp, ramping_const, load_pr_case, inc_h2_demand, first_station, last_station, cap_class, hour, day, station,
             no_station_to_run, ir, capex_B, life_B, fixed_OM_B, p_BC_fixed, p_BE, h_B, p_HK_fixed, p_HC_fixed, p_HE, r_M, k_M,
-            life_M, capex_M, fixed_OM_M, var_OM_M, fuel_M, g_M_min, capex_P, life_P, fixed_OM_P, p_PE, p_WO, cf_W, h2_demand_p, h2_convert, k_Double)
+            life_M, capex_M, fixed_OM_M, var_OM_M, fuel_M, g_M_min, capex_P, life_P, fixed_OM_P, p_PE, p_WO, cf_W, h2_demand_p,
+            hhv, h2_convert, k_Double)
 
 
 def main_function():
     (super_comp, ramping_const, load_pr_case, inc_h2_demand, first_station, last_station, cap_class, hour, day, station,
      no_station_to_run, ir, capex_B, life_B, fixed_OM_B, p_BC_fixed, p_BE, h_B, p_HK_fixed, p_HC_fixed, p_HE, r_M, k_M,
-     life_M, capex_M, fixed_OM_M, var_OM_M, fuel_M, g_M_min, capex_P, life_P, fixed_OM_P, p_PE, p_WO, cf_W, h2_demand_p, h2_convert, k_Double) = main_params()
+     life_M, capex_M, fixed_OM_M, var_OM_M, fuel_M, g_M_min, capex_P, life_P, fixed_OM_P, p_PE, p_WO, cf_W, h2_demand_p,
+     hhv, h2_convert, k_Double) = main_params()
 
     (model_dir, load_folder, solar_folder, trans_folder, results_folder, charging_station_folder) = working_directory(super_comp)
 
@@ -103,7 +106,7 @@ def main_function():
                 charging_station_folder, station, cap_class, load_pr_case, inc_h2_demand, hour, day,
                 ir, capex_B, fixed_OM_B, p_BC_fixed, life_B, p_HK_fixed, p_HC_fixed, capex_M, life_M,
                 fixed_OM_M, var_OM_M, fuel_M, life_P, capex_P, fixed_OM_P, ramping_const, k_M, g_M_min,
-                h_B, r_M, p_WO, p_BE, p_HE, p_PE, cf_W, h2_demand_p, h2_convert, k_Double)
+                h_B, r_M, p_WO, p_BE, p_HE, p_PE, cf_W, h2_demand_p, hhv, h2_convert, k_Double)
 
 
 # %% Set working directory:
@@ -140,7 +143,7 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
                 charging_station_folder, station, cap_class, load_pr_case, inc_h2_demand, hour, day,
                 ir, capex_B, fixed_OM_B, p_BC_fixed, life_B, p_HK_fixed, p_HC_fixed, capex_M, life_M,
                 fixed_OM_M, var_OM_M, fuel_M, life_P, capex_P, fixed_OM_P, ramping_const, k_M, g_M_min,
-                h_B, r_M, p_WO, p_BE, p_HE, p_PE, cf_W, h2_demand_p, h2_convert, k_Double):
+                h_B, r_M, p_WO, p_BE, p_HE, p_PE, cf_W, h2_demand_p, hhv, h2_convert, k_Double):
 
     for cs in S_r:
         # %% Set model type - Concrete Model:
@@ -151,7 +154,7 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
         (d_E, d_H_bar) = load_data(model_dir, load_folder, S_t, T, hour, day, station_no, load_pr_case, h2_demand_p, h2_convert, inc_h2_demand)
 
         # Storage:
-        (p_BK, p_BC, p_HK, p_HC) = storage_data(ir, life_B, capex_B, fixed_OM_B, p_BC_fixed, p_HK_fixed, p_HC_fixed)
+        (p_BK, p_BC, p_HK, p_HC) = storage_data(ir, life_B, capex_B, fixed_OM_B, p_BC_fixed, p_HK_fixed, p_HC_fixed, hhv)
 
         # SMR:
         (p_MK, p_ME) = SMR_data(ir, life_M, capex_M, fixed_OM_M, var_OM_M, fuel_M)
