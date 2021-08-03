@@ -26,7 +26,7 @@ def load_data(model_dir, load_folder, S_t, T, hour, day, station_no, load_pr_cas
             d_H_bar_MWh[t] = d_E_wH2[t] * h2_demand_p
         elif inc_h2_demand == 0:
             d_H_bar_MWh[t] = 0
-        d_H_bar[t] = d_H_bar_MWh[t] * h2_convert
+        d_H_bar[t] = d_H_bar_MWh[t] * h2_convert * 1000
         d_E[t] = d_E_wH2[t] - d_H_bar_MWh[t]
 
     return d_E, d_H_bar
