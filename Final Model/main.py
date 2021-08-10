@@ -28,13 +28,13 @@ def main_params():
     super_comp = 0                                  # ==1: run on super computer, ==0: run on local laptop
     ramping_const = 1                               # ==1: ramping constraints for SMR activated, ==0: no ramping constraints
     load_pr_case = 1                                # ==1: 170 stations, ==2: 161 stations, ==3: 152 stations
-    inc_h2_demand = 0                               # ==1: include hydrogen demand, ==0: no hydrogen demand
+    inc_h2_demand = 1                               # ==1: include hydrogen demand, ==0: no hydrogen demand
     range_or_inds = 1                               # ==1: pick a range of stations, ==0: pick individual stations
 
     # Specify model scope:
-    first_station, last_station = 4, 6              # Range of stations to run. Pick numbers between 1 and 170/161/152, first_station <= last_station
+    first_station, last_station = 148, 149              # Range of stations to run. Pick numbers between 1 and 170/161/152, first_station <= last_station
     stations_to_run = [148, 149, 151]               # if range_or_inds = 0, please pick the individual stations to run
-    stations_to_exclude = [5,212,215,228]           # list of stations excluded from study
+    stations_to_exclude = [149]                     # list of stations excluded from study
 
     hour = 8760                                     # Number of hours in a typical year
     day = 365                                       # Number of days in a typical year
@@ -189,27 +189,32 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
             # %% Define variables:
             # Power rating by technology:
             model.k_B = Var(S, within=NonNegativeReals)  # Battery power rating
-            model.k_H = Var(S, within=NonNegativeReals)  # H2 power rating
+            if inc_h2_demand == 1:
+                model.k_H = Var(S, within=NonNegativeReals)  # H2 power rating
             model.k_P = Var(S, within=NonNegativeReals)  # Solar capacity
 
             # Energy capacity by technology:
             model.e_B = Var(S, within=NonNegativeReals)  # Battery energy capacity
-            model.e_H = Var(S, within=NonNegativeReals)  # H2 energy capacity
+            if inc_h2_demand == 1:
+                model.e_H = Var(S, within=NonNegativeReals)  # H2 energy capacity
 
             # Generation by technology:
             model.g_B = Var(S, T, within=NonNegativeReals)  # Battery generation
-            model.g_H = Var(S, T, within=NonNegativeReals)  # H2 generation
+            if inc_h2_demand == 1:
+                model.g_H = Var(S, T, within=NonNegativeReals)  # H2 generation
             model.g_P = Var(S, T, within=NonNegativeReals)  # Solar generation
             model.g_M = Var(S, T, within=NonNegativeReals)  # SMR generation
             model.g_W = Var(S, T, within=NonNegativeReals)  # Wholesale purchased generation
 
             # Inflow demands by technology:
             model.d_B = Var(S, T, within=NonNegativeReals)  # Battery inflow demand
-            model.d_H = Var(S, T, within=NonNegativeReals)  # H2 inflow demand
+            if inc_h2_demand == 1:
+                model.d_H = Var(S, T, within=NonNegativeReals)  # H2 inflow demand
 
             # States of charges:
             model.x_B = Var(S, T, within=NonNegativeReals)  # Battery state of charge
-            model.x_H = Var(S, T, within=NonNegativeReals)  # H2 state of charge
+            if inc_h2_demand == 1:
+                model.x_H = Var(S, T, within=NonNegativeReals)  # H2 state of charge
 
             # Whole number variables:
             model.u_M = Var(S, within=NonNegativeIntegers)  # Number of SMR modules built
@@ -265,7 +270,7 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
 
                 def x_hydrogen(model, s, t):
                     if t == 0:
-                        return model.x_H[s, t] == 0 * model.e_H[s]
+                        return model.x_H[s, t] == 0
                     return model.x_H[s, t] == model.x_H[s, t - 1] + ef_H * model.d_H[s, t] - model.g_H[s, t]
                 model.x_h = Constraint(S, T, rule=x_hydrogen)
 
@@ -323,11 +328,17 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
 
             # Objective function:
             def obj_function(model):
-                return sum(p_BK * model.k_B[s] + p_BC * model.e_B[s] + sum(p_BE * model.g_B[s, t] for t in T) for s in S) \
-                       + sum(p_HK * model.k_H[s] + p_HC * model.e_H[s] + sum(p_HE * model.g_H[s, t] for t in T) for s in S) \
-                       + sum(p_PK * model.k_P[s] + sum(p_PE * model.g_P[s, t] for t in T) for s in S) \
-                       + sum(p_MK * model.u_M[s] * k_M + sum(p_ME * model.g_M[s, t] for t in T) for s in S) \
-                       + sum(sum((1 + p_WO) * p_WK[i] * k_W[i] * model.u_W[s, i] for i in I) + sum(p_WE[t] * model.g_W[s, t] for t in T) for s in S)
+                if inc_h2_demand == 0:
+                    return sum(p_BK * model.k_B[s] + p_BC * model.e_B[s] + sum(p_BE * model.g_B[s, t] for t in T) for s in S) \
+                           + sum(p_PK * model.k_P[s] + sum(p_PE * model.g_P[s, t] for t in T) for s in S) \
+                           + sum(p_MK * model.u_M[s] * k_M + sum(p_ME * model.g_M[s, t] for t in T) for s in S) \
+                           + sum(sum((1 + p_WO) * p_WK[i] * k_W[i] * model.u_W[s, i] for i in I) + sum(p_WE[t] * model.g_W[s, t] for t in T) for s in S)
+                elif inc_h2_demand == 1:
+                    return sum(p_BK * model.k_B[s] + p_BC * model.e_B[s] + sum(p_BE * model.g_B[s, t] for t in T) for s in S) \
+                           + sum(p_HK * model.k_H[s] + p_HC * model.e_H[s] + sum(p_HE * model.g_H[s, t] for t in T) for s in S) \
+                           + sum(p_PK * model.k_P[s] + sum(p_PE * model.g_P[s, t] for t in T) for s in S) \
+                           + sum(p_MK * model.u_M[s] * k_M + sum(p_ME * model.g_M[s, t] for t in T) for s in S) \
+                           + sum(sum((1 + p_WO) * p_WK[i] * k_W[i] * model.u_W[s, i] for i in I) + sum(p_WE[t] * model.g_W[s, t] for t in T) for s in S)
             model.obj_func = Objective(rule=obj_function)
 
             # Solve HDV model:
@@ -368,10 +379,12 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
 
             for s in S:
                 k_B_star[s] = value(model.k_B[s])
-                k_H_star[s] = value(model.k_H[s])
+                if inc_h2_demand == 1:
+                    k_H_star[s] = value(model.k_H[s])
                 k_P_star[s] = value(model.k_P[s])
                 e_B_star[s] = value(model.e_B[s])
-                e_H_star[s] = value(model.e_H[s])
+                if inc_h2_demand == 1:
+                    e_H_star[s] = value(model.e_H[s])
                 u_M_star[s] = value(model.u_M[s])
 
             for s in S:
