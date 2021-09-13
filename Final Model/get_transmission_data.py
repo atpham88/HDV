@@ -2,7 +2,8 @@
 import pandas as pd
 import numpy as np
 
-def transmission_data(model_dir, trans_folder, charging_station_folder, S_t, T, I, cap_class, station_no, day, hour, cf_W, load_pr_case, k_Double):
+def transmission_data(model_dir, trans_folder, charging_station_folder, S_t, T, I, cap_class,
+                      station_no, day, hour, cf_W, load_pr_case, k_Double, trans_cap_util):
     station_case_data = model_dir + charging_station_folder + "charging_station_cases.xlsx"
     transmission_data = model_dir + trans_folder + "Transmission Cost Inputs.xlsx"
 
@@ -60,15 +61,15 @@ def transmission_data(model_dir, trans_folder, charging_station_folder, S_t, T, 
     p_WK = dict.fromkeys((range(cap_class)))
 
     for i in I:
-        k_W[i] = k_W_temp[station_no-1][i]
+        k_W[i] = k_W_temp[station_no-1][i]*trans_cap_util
         p_WK[i] = p_WK_temp[station_no-1][i]
 
     if load_pr_case == 1:
         p_WE_annual_temp = pd.read_excel(model_dir + trans_folder + "lmp_2020_case1.xlsx")
     elif load_pr_case == 2:
-        p_WE_annual_temp = pd.read_excel(model_dir + trans_folder + "lmp_2020_case1.xlsx")
+        p_WE_annual_temp = pd.read_excel(model_dir + trans_folder + "lmp_2020_case2.xlsx")
     elif load_pr_case == 3:
-        p_WE_annual_temp = pd.read_excel(model_dir + trans_folder + "lmp_2020_case1.xlsx")
+        p_WE_annual_temp = pd.read_excel(model_dir + trans_folder + "lmp_2020_case3.xlsx")
 
     p_WE_annual_temp_2 = p_WE_annual_temp.iloc[:, 4:]
     p_WE_annual = pd.DataFrame(np.tile(p_WE_annual_temp_2, 1))

@@ -1,8 +1,7 @@
 """
 An Pham
-Updated 07/23/2021
+Updated 09/11/2021
 """
-
 import numpy as np
 import pandas as pd
 from pyomo.environ import *
@@ -30,9 +29,14 @@ def main_params():
     load_pr_case = 1                                # ==1: 170 stations, ==2: 161 stations, ==3: 152 stations
     inc_h2_demand = 1                               # ==1: include hydrogen demand, ==0: no hydrogen demand
     range_or_inds = 1                               # ==1: pick a range of stations, ==0: pick individual stations
+    initial_h2SOC = 1                               # ==1: using last period SOC to calculate first period SOC
+                                                    # ==0: initial SOC is 0. all h2 gen is from on-site electricity
 
+    trans_cap_util = 1                              # ratio of utilized effective transmission cap
+    microreactors_sce = 1                           # ==1: use microreactors params
+                                                    # ==0: use SMR params
     # Specify model scope:
-    first_station, last_station = 148, 152          # Range of stations to run. Pick numbers between 1 and 170/161/152, first_station <= last_station
+    first_station, last_station = 148, 148          # Range of stations to run. Pick numbers between 1 and 170/161/152, first_station <= last_station
     stations_to_run = [148, 149, 151]               # if range_or_inds = 0, please pick the individual stations to run
     stations_to_exclude = [149, 151]                # list of stations excluded from study
 
@@ -50,14 +54,18 @@ def main_params():
     no_station_to_run = 1                           # Don't change this. We only run one station at a time
 
     # Model main parameters:
-    ir = 0.015                                      # Interest rate
+    ir = 0.015
+    if microreactors_sce == 0:
+        ir_SMR = 0.015                                      # Interest rate
+    elif microreactors_sce == 1:
+        ir_SMR = 0.06
 
     # Battery:
     capex_B = 1455000                               # Assuming 4hr moderate battery storage ($/MW)
     life_B = 15                                     # Battery life time (years)
     fixed_OM_B = 36370                              # Fixed battery OM cost ($/MW-year)
     p_BC_fixed = 0                                  # Battery energy cost ($/kWh/h)
-    p_BE = 0                                        # Battery operating cost ($/MW)
+    p_BE = 0                                        # Battery operating cost ($/MWh)
     h_B = 4                                         # Battery hours (hour)
     ef_B = 0.85                                     # Round trip efficiency
 
@@ -70,17 +78,32 @@ def main_params():
     p_HC_fixed_kWh = 1
     p_HC_fixed = p_HC_fixed_kWh*hhv                 # H2 energy cost ($/kg) from Dowling et al
     p_HE = 0                                        # H2 operating cost
-    ef_H = 1                                        # Round trip efficiency
+    ef_H = 0.49                                     # Round trip efficiency
 
-    # SMR:
-    r_M = 0.4                                       # Ramp rate for SMR (percentage of capacity)
-    k_M = 60                                        # SMR capacity per module (MW)
-    life_M = 40                                     # SMR life time (years)
-    capex_M = 2616000                               # SMR capex ($/MW)
-    fixed_OM_M = 25000                              # Fixed SMR OM cost ($/MW-year)
-    var_OM_M = 0.75                                 # Variable OM cost ($/MWh)
-    fuel_M = 8.71                                   # SMR fuel cost ($/MWh)
-    g_M_min = 30                                    # SMR minimum stable load (MWh)
+    # SMR/micro-reactors:
+    if microreactors_sce == 0:
+        r_M = 0.4                                       # Ramp rate for SMR (percentage of capacity)
+        k_M = 60                                        # SMR capacity per module (MW)
+        life_M = 40                                     # SMR life time (years)
+        capex_M = 2616000                               # SMR capex ($/MW)
+        fixed_OM_M = 25000                              # Fixed SMR OM cost ($/MW-year)
+        var_OM_M = 0.75                                 # Variable OM cost ($/MWh)
+        fuel_M = 8.71                                   # SMR fuel cost ($/MWh)
+        g_M_min = 30                                    # SMR minimum stable load (MWh)
+    elif microreactors_sce == 1:
+        r_M = 0.4                                       # Ramp rate for SMR (percentage of capacity)
+        k_M = 10                                        # SMR capacity per module (MW)
+        life_M = 20                                     # SMR life time (years)
+        capex_M = 3000000                               # SMR capex ($/MW)
+
+        #p_u3o8 = 40                                     # $/lb
+        #hr_nuclear = 10.16564428                        # Using data from NET model (mmBTU/MWh)
+        #lb_to_mmbtu = 180
+        fixed_OM_M = 50000                              # Fixed SMR OM cost ($/MW-year)
+        var_OM_M = 0                                    # Variable OM cost ($/MWh)
+        #fuel_M = p_u3o8*lb_to_mmbtu*hr_nuclear          # SMR fuel cost ($/MWh)
+        fuel_M = 8.71
+        g_M_min = 0.5*k_M                               # SMR minimum stable load (MWh)
 
     # Solar:
     capex_P = 1354000                               # Solar capex ($/MW)
@@ -102,24 +125,25 @@ def main_params():
     return (super_comp, ramping_const, load_pr_case, inc_h2_demand, first_station, last_station, cap_class, hour, day, station,
             no_station_to_run, ir, capex_B, life_B, fixed_OM_B, p_BC_fixed, p_BE, h_B, ef_B, p_HK_fixed, p_HC_fixed, p_HE, ef_H,
             r_M, k_M, life_M, capex_M, fixed_OM_M, var_OM_M, fuel_M, g_M_min, capex_P, life_P, fixed_OM_P, p_PE, p_WO, cf_W, h2_demand_p,
-            hhv, h2_convert, k_Double, range_or_inds, stations_to_run, stations_to_exclude)
+            hhv, h2_convert, k_Double, range_or_inds, stations_to_run, stations_to_exclude, initial_h2SOC, trans_cap_util)
 
 
 def main_function():
     (super_comp, ramping_const, load_pr_case, inc_h2_demand, first_station, last_station, cap_class, hour, day, station,
      no_station_to_run, ir, capex_B, life_B, fixed_OM_B, p_BC_fixed, p_BE, h_B, ef_B, p_HK_fixed, p_HC_fixed, p_HE, ef_H,
      r_M, k_M, life_M, capex_M, fixed_OM_M, var_OM_M, fuel_M, g_M_min, capex_P, life_P, fixed_OM_P, p_PE, p_WO, cf_W, h2_demand_p,
-     hhv, h2_convert, k_Double, range_or_inds, stations_to_run, stations_to_exclude) = main_params()
+     hhv, h2_convert, k_Double, range_or_inds, stations_to_run, stations_to_exclude, initial_h2SOC, trans_cap_util) = main_params()
 
     (model_dir, load_folder, solar_folder, trans_folder, results_folder, charging_station_folder) = working_directory(super_comp)
 
-    (I, S, T, S_t, S_r) = main_sets(no_station_to_run, cap_class, hour, station, first_station, last_station, range_or_inds, stations_to_run, stations_to_exclude)
+    (I, S, T, S_t, S_r) = main_sets(no_station_to_run, cap_class, hour, station, first_station, last_station,
+                                    range_or_inds, stations_to_run, stations_to_exclude)
 
     model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar_folder, trans_folder,
                 charging_station_folder, station, first_station, cap_class, load_pr_case, inc_h2_demand, hour, day,
-                ir, capex_B, fixed_OM_B, p_BC_fixed, life_B, ef_B, p_HK_fixed, p_HC_fixed, ef_H, range_or_inds,
-                capex_M, life_M, fixed_OM_M, var_OM_M, fuel_M, life_P, capex_P, fixed_OM_P, ramping_const,
-                k_M, g_M_min, h_B, r_M, p_WO, p_BE, p_HE, p_PE, cf_W, h2_demand_p, hhv, h2_convert, k_Double, stations_to_exclude)
+                ir, capex_B, fixed_OM_B, p_BC_fixed, life_B, ef_B, p_HK_fixed, p_HC_fixed, ef_H, initial_h2SOC, range_or_inds,
+                capex_M, life_M, fixed_OM_M, var_OM_M, fuel_M, life_P, capex_P, fixed_OM_P, ramping_const, trans_cap_util,
+                k_M, g_M_min, h_B, r_M, p_WO, p_BE, p_HE, p_PE, cf_W, h2_demand_p, hhv, h2_convert, k_Double)
 
 
 # %% Set working directory:
@@ -141,7 +165,8 @@ def working_directory(super_comp):
     return model_dir, load_folder, solar_folder, trans_folder, results_folder, charging_station_folder
 
 # %% Define set:
-def main_sets(no_station_to_run, cap_class, hour, station, first_station, last_station, range_or_inds, stations_to_run, stations_to_exclude):
+def main_sets(no_station_to_run, cap_class, hour, station, first_station, last_station,
+              range_or_inds, stations_to_run, stations_to_exclude):
     I = list(range(cap_class))                              # Set of transmission capacity classes
     S = list(range(no_station_to_run))                      # Set of charging stations to run
     T = list(range(hour))                                   # Set of hours to run
@@ -161,9 +186,9 @@ def main_sets(no_station_to_run, cap_class, hour, station, first_station, last_s
 # %% Solving HDV model:
 def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar_folder, trans_folder,
                 charging_station_folder, station, first_station, cap_class, load_pr_case, inc_h2_demand, hour, day,
-                ir, capex_B, fixed_OM_B, p_BC_fixed, life_B, ef_B, p_HK_fixed, p_HC_fixed, ef_H, range_or_inds,
-                capex_M, life_M, fixed_OM_M, var_OM_M, fuel_M, life_P, capex_P, fixed_OM_P, ramping_const,
-                k_M, g_M_min, h_B, r_M, p_WO, p_BE, p_HE, p_PE, cf_W, h2_demand_p, hhv, h2_convert, k_Double, stations_to_exclude):
+                ir, capex_B, fixed_OM_B, p_BC_fixed, life_B, ef_B, p_HK_fixed, p_HC_fixed, ef_H, initial_h2SOC, range_or_inds,
+                capex_M, life_M, fixed_OM_M, var_OM_M, fuel_M, life_P, capex_P, fixed_OM_P, ramping_const, trans_cap_util,
+                k_M, g_M_min, h_B, r_M, p_WO, p_BE, p_HE, p_PE, cf_W, h2_demand_p, hhv, h2_convert, k_Double):
 
     for cs in S_r:
         # %% Set model type - Concrete Model:
@@ -183,9 +208,12 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
         (f_P, p_PK) = solar_data(model_dir, solar_folder, S_t, T, station_no, hour, ir, life_P, capex_P, fixed_OM_P, load_pr_case)
 
         # Transmission data:
-        (p_WK, k_W, p_WE) = transmission_data(model_dir, trans_folder, charging_station_folder, S_t, T, I, cap_class, station_no, day, hour, cf_W, load_pr_case, k_Double)
+        (p_WK, k_W, p_WE) = transmission_data(model_dir, trans_folder, charging_station_folder, S_t, T, I, cap_class,
+                                              station_no, day, hour, cf_W, load_pr_case, k_Double, trans_cap_util)
 
-        # %% Define variables:
+        # %% Define variables and ordered set:
+        model.T = Set(initialize=T, ordered=True)
+
         # Power rating by technology:
         model.k_B = Var(S, within=NonNegativeReals)  # Battery power rating
 
@@ -251,10 +279,8 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
         model.ub_e_B = Constraint(S, rule=ub_e_battery)
 
         def x_battery(model, s, t):
-            if t == 0:
-                return model.x_B[s, t] == 0.5 * model.e_B[s]
-            return model.x_B[s, t] == model.x_B[s, t - 1] + ef_B * model.d_B[s, t] - model.g_B[s, t]
-        model.x_b = Constraint(S, T, rule=x_battery)
+            return model.x_B[s, t] == model.x_B[s, model.T.prevw(t)] + ef_B * model.d_B[s, t] - model.g_B[s, t]
+        model.x_b = Constraint(S, model.T, rule=x_battery)
 
         # H2 constraints:
         if inc_h2_demand == 1:
@@ -262,40 +288,50 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
                 return model.d_H[s, t]/c_H <= model.k_H[s]
             model.ub_d_H = Constraint(S, T, rule=ub_d_hydrogen)
 
-            def d_hydrogen_initial(model, s, t):
-                if t == 0:
-                    return ef_H * model.d_H[s, t] == d_H_bar[t]
-                else:
-                    return Constraint.Skip
-            model.d_H_initial = Constraint(S, T, rule=d_hydrogen_initial)
+            if initial_h2SOC == 0:
+                def d_hydrogen_initial(model, s, t):
+                    if t == 0:
+                        return ef_H * model.d_H[s, t] == d_H_bar[t]
+                    else:
+                        return Constraint.Skip
+                model.d_H_initial = Constraint(S, T, rule=d_hydrogen_initial)
 
             def ub_g_hydrogen(model, s, t):
                 return model.g_H[s, t]/c_H <= model.k_H[s]
             model.ub_g_H = Constraint(S, T, rule=ub_g_hydrogen)
 
-            def g_hydrogen_initial(model, s, t):
-                if t == 0:
-                    return model.g_H[s, t] == model.d_H[s, t] * ef_H
-                else:
-                    return Constraint.Skip
-            model.g_H_initial = Constraint(S, T, rule=g_hydrogen_initial)
+            if initial_h2SOC == 0:
+                def g_hydrogen_initial(model, s, t):
+                    if t == 0:
+                        return model.g_H[s, t] == model.d_H[s, t] * ef_H
+                    else:
+                        return Constraint.Skip
+                model.g_H_initial = Constraint(S, T, rule=g_hydrogen_initial)
 
             def ub_g_x_hydrogen(model, s, t):
-                if t > 0:
+                if initial_h2SOC == 0:
+                    if t > 0:
+                        return model.g_H[s, t] <= model.x_H[s, t]
+                    elif t == 0:
+                        return Constraint.Skip
+                elif initial_h2SOC == 1:
                     return model.g_H[s, t] <= model.x_H[s, t]
-                elif t == 0:
-                    return Constraint.Skip
             model.ub_g_x_H = Constraint(S, T, rule=ub_g_x_hydrogen)
 
             def ub_x_e_hydrogen(model, s, t):
                 return model.x_H[s, t] <= model.e_H[s]
             model.ub_x_e_H = Constraint(S, T, rule=ub_x_e_hydrogen)
 
-            def x_hydrogen(model, s, t):
-                if t == 0:
-                    return model.x_H[s, t] == 0
-                return model.x_H[s, t] == model.x_H[s, t - 1] + ef_H * model.d_H[s, t] - model.g_H[s, t]
-            model.x_h = Constraint(S, T, rule=x_hydrogen)
+            if initial_h2SOC == 0:
+                def x_hydrogen(model, s, t):
+                    if t == 0:
+                        return model.x_H[s, t] == 0
+                    return model.x_H[s, t] == model.x_H[s, t - 1] + ef_H * model.d_H[s, t] - model.g_H[s, t]
+                model.x_h = Constraint(S, T, rule=x_hydrogen)
+            elif initial_h2SOC == 1:
+                def x_hydrogen(model, s, t):
+                    return model.x_H[s, t] == model.x_H[s, model.T.prevw(t)] + ef_H * model.d_H[s, t] - model.g_H[s, t]
+                model.x_h = Constraint(S, model.T, rule=x_hydrogen)
 
             def d_hydrogen(model, s, t):
                 return model.g_H[s, t] >= d_H_bar[t]

@@ -10,5 +10,5 @@ def storage_data(ir, life_B, capex_B, fixed_OM_B, p_BC_fixed, p_HK_fixed, p_HC_f
     CRF_H = 0.0806
     c_H = 1000 * h2_convert                     # kg to MWh
     p_HK = p_HK_fixed * 1000 * 8760             # $/MW-year
-    p_HC = p_HC_fixed * CRF_H                   # ($/kg)
+    p_HC = p_HC_fixed * CRF_H *8760             # ($/kg)
     return p_BK, p_BC, p_HK, p_HC, c_H
