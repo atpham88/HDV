@@ -5,7 +5,7 @@ import numpy as np
 def transmission_data(model_dir, trans_folder, charging_station_folder, S_t, T, I, cap_class,
                       station_no, day, hour, cf_W, load_pr_case, k_Double, trans_cap_util):
     station_case_data = model_dir + charging_station_folder + "charging_station_cases.xlsx"
-    transmission_data = model_dir + trans_folder + "Transmission Cost Inputs.xlsx"
+    transmission_data = model_dir + trans_folder + "Transmission Cost Inputs 10.1.21 7%.xlsx"
 
     # Read in transmission line capacity:
     k_W_temp = pd.read_excel(transmission_data, "Eff_Cap")

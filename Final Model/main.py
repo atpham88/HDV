@@ -17,9 +17,8 @@ from get_solar_data import solar_data
 from get_load_data import load_data
 from get_transmission_data import transmission_data
 
-
 start_time = time.time()
-fixed_time_for_results = time.strftime("%Y-%m-%d-%H%M%S", time.localtime(time.time()))
+# fixed_time_for_results = time.strftime("%Y-%m-%d-%H%M%S", time.localtime(time.time()))
 
 # %% Main parameters:
 def main_params():
@@ -33,12 +32,12 @@ def main_params():
                                                     # ==0: initial SOC is 0. all h2 gen is from on-site electricity
 
     trans_cap_util = 1                              # ratio of utilized effective transmission cap
-    microreactors_sce = 1                           # ==1: use microreactors params
+    microreactors_sce = 0                           # ==1: use microreactors params
                                                     # ==0: use SMR params
     # Specify model scope:
-    first_station, last_station = 148, 148          # Range of stations to run. Pick numbers between 1 and 170/161/152, first_station <= last_station
-    stations_to_run = [148, 149, 151]               # if range_or_inds = 0, please pick the individual stations to run
-    stations_to_exclude = [149, 151]                # list of stations excluded from study
+    first_station, last_station = 1, 170         # Range of stations to run. Pick numbers between 1 and 170/161/152, first_station <= last_station
+    stations_to_run = [3, 4, 58]               # if range_or_inds = 0, please pick the individual stations to run
+    stations_to_exclude = [98,99,106]                # list of stations excluded from study
 
     hour = 8760                                     # Number of hours in a typical year
     day = 365                                       # Number of days in a typical year
@@ -54,11 +53,7 @@ def main_params():
     no_station_to_run = 1                           # Don't change this. We only run one station at a time
 
     # Model main parameters:
-    ir = 0.015
-    if microreactors_sce == 0:
-        ir_SMR = 0.015                                      # Interest rate
-    elif microreactors_sce == 1:
-        ir_SMR = 0.06
+    ir = 0.07
 
     # Battery:
     capex_B = 1455000                               # Assuming 4hr moderate battery storage ($/MW)
@@ -71,7 +66,7 @@ def main_params():
 
     # Hydrogen:
     h2_demand_p = 0.2                               # Percentage of electricity demand that comes from H2
-    h2_convert = 0.0493                             # Tianyi's number
+    h2_convert = 0.0471                             # Tianyi's number
     hhv = 39.4                                      # Tianyi's slides (also same as Dowling et al.)
     p_HK_fixed = 0.0148                             # H2 capital cost ($/kW/h) from Dowling et al
     # p_HC_fixed = 1.47*10**(-6)                    # H2 energy cost ($/kWh) from Dowling et al
@@ -405,7 +400,8 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
         solver = SolverFactory('cplex')
         results = solver.solve(model, tee=True)
         # model.pprint()
-
+        #model.display()
+        #model.k_B.display()
         if (results.solver.status == SolverStatus.ok) and (results.solver.termination_condition == TerminationCondition.optimal):
             print('Solution is feasible')
         elif results.solver.termination_condition == TerminationCondition.infeasible:
@@ -463,7 +459,7 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
             for i in I:
                 u_W_star[s, i] = value(model.u_W[s, i])
 
-        update_results_folder = results_folder + fixed_time_for_results + '\\'
+        update_results_folder = results_folder  + '\\' #+ fixed_time_for_results
         if not os.path.exists(update_results_folder):
             os.makedirs(update_results_folder)
 
