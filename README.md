@@ -1,7 +1,9 @@
 # Model Overview
 
 The HDV charging model is an optimization model that minimizes the total system cost of capacity expansions and operations of distributed energy resources such as batteries, small nuclear microreactors (SMR), solar PV, and the cost of purchase of electricity from the grid, which includes transmission expansions and infrastructure update costs, to meet charging stations' hourly demands across the United States in a given year, taken into account technology and power system constraints.
-The Model includes 219 HDV charging stations, spanning 3 charging load scenarios. <img src="https://user-images.githubusercontent.com/56058936/118055052-613e5880-b355-11eb-85f3-75c309a0a36d.png" width="900">
+
+The Model includes 219 HDV charging stations, spanning 3 charging load scenarios. <img src="https://user-images.githubusercontent.com/56058936/145284422-21fad33f-1dc1-480a-8016-cd1a44406763.png" width="900">
+
 # Model Outputs
 Annual new capacities expansion of distributed energy resources' at each charging station.
 
