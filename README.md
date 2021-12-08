@@ -17,6 +17,4 @@ Hourly purchase of electricity from the grid
 
 Voltage class and length of transmission line built at each charging station location to connect to power grid.
 
-CO2 emissions from RGGI states not in PJM for years 2017-2030.
-
 Total cost of capacity expansions, resource operations, transmission lines development, and bulk power purchase.
