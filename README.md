@@ -13,7 +13,7 @@ Hourly inflow and discharge of battery storage at each charging station.
 
 Hourly inflow and discharge of hydrogen storage at each charging station.
 
-Hourly purchase from electricity from the grid
+Hourly purchase of electricity from the grid
 
 Voltage class and length of transmission line built at each charging station location to connect to power grid.
 
