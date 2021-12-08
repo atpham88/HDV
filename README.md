@@ -1,5 +1,24 @@
 # Model Overview
 
-The HDV model is an optimization model that minimizes the total cost of capacity expansions and operations of storage (battery and hydrogen), small nuclear microreactors (SMR), solar PV, and purchase of electricity from the grid to meet charging stations' hourly demands across the United States in a given year, taken into account technology and power system constraints.
+The HDV model is an optimization model that minimizes the total system cost of capacity expansions and operations of distributed energy resources such as batteries, small nuclear microreactors (SMR), solar PV, and the cost of purchase of electricity from the grid, which includes transmission expansions and infrastructure update costs, to meet charging stations' hourly demands across the United States in a given year, taken into account technology and power system constraints.
 
 <img src="https://user-images.githubusercontent.com/56058936/118055052-613e5880-b355-11eb-85f3-75c309a0a36d.png" width="900">
+
+The Model includes 219 HDV charging stations, spanning 3 charging load scenarios.
+
+# Model Outputs
+Annual new capacities expansion of distributed energy resources' at each charging station.
+
+Hourly generation from SMR and solar PV at each charging station.
+
+Hourly inflow and discharge of battery storage at each charging station.
+
+Hourly inflow and discharge of hydrogen storage at each charging station.
+
+Hourly purchase from electricity from the grid
+
+Voltage class and length of transmission line built at each charging station location to connect to power grid.
+
+CO2 emissions from RGGI states not in PJM for years 2017-2030.
+
+Total cost of capacity expansions, resource operations, transmission lines development, and bulk power purchase.
