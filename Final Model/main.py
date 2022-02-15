@@ -32,12 +32,12 @@ def main_params():
                                                     # ==0: initial SOC is 0. all h2 gen is from on-site electricity
 
     trans_cap_util = 1                              # ratio of utilized effective transmission cap
-    microreactors_sce = 0                           # ==1: use microreactors params
+    microreactors_sce = 1                           # ==1: use microreactors params
                                                     # ==0: use SMR params
     # Specify model scope:
-    first_station, last_station = 1, 170         # Range of stations to run. Pick numbers between 1 and 170/161/152, first_station <= last_station
-    stations_to_run = [3, 4, 58]               # if range_or_inds = 0, please pick the individual stations to run
-    stations_to_exclude = [98,99,106]                # list of stations excluded from study
+    first_station, last_station = 129, 129          # Range of stations to run. Pick numbers between 1 and 170/161/152, first_station <= last_station
+    stations_to_run = [3, 4, 58]                    # if range_or_inds = 0, please pick the individual stations to run
+    stations_to_exclude = [98,99,106]               # list of stations excluded from study
 
     hour = 8760                                     # Number of hours in a typical year
     day = 365                                       # Number of days in a typical year
@@ -53,7 +53,7 @@ def main_params():
     no_station_to_run = 1                           # Don't change this. We only run one station at a time
 
     # Model main parameters:
-    ir = 0.07
+    ir = 0.03
 
     # Battery:
     capex_B = 1455000                               # Assuming 4hr moderate battery storage ($/MW)
@@ -65,40 +65,41 @@ def main_params():
     ef_B = 0.85                                     # Round trip efficiency
 
     # Hydrogen:
-    h2_demand_p = 0.2                               # Percentage of electricity demand that comes from H2
-    h2_convert = 0.0471                             # Tianyi's number
-    hhv = 39.4                                      # Tianyi's slides (also same as Dowling et al.)
+    h2_demand_p = 0.4                               # Percentage of electricity demand that comes from H2
+    h2_convert = 0.0471                             # BEV/FCEV energy consumption ratio (Tianyi's imputation) (= 21.23 kwh/kg)
+    h2_convert_elec = 0.01949317738                 # Electrolyzer efficiency factor (= 51.4 kWh/kg from NREL H2A)
+    hhv = 39.4                                      # Higher heating value
     p_HK_fixed = 0.0148                             # H2 capital cost ($/kW/h) from Dowling et al
     # p_HC_fixed = 1.47*10**(-6)                    # H2 energy cost ($/kWh) from Dowling et al
-    p_HC_fixed_kWh = 1
-    p_HC_fixed = p_HC_fixed_kWh*hhv                 # H2 energy cost ($/kg) from Dowling et al
+    p_HC_fixed_kWh = 1                              # H2 energy cost ($/kWh) from Sepulveda et al
+    p_HC_fixed = p_HC_fixed_kWh*hhv                 # H2 energy cost ($/kg)
     p_HE = 0                                        # H2 operating cost
     ef_H = 0.49                                     # Round trip efficiency
 
     # SMR/micro-reactors:
     if microreactors_sce == 0:
-        r_M = 0.4                                       # Ramp rate for SMR (percentage of capacity)
-        k_M = 60                                        # SMR capacity per module (MW)
-        life_M = 40                                     # SMR life time (years)
-        capex_M = 2616000                               # SMR capex ($/MW)
-        fixed_OM_M = 25000                              # Fixed SMR OM cost ($/MW-year)
-        var_OM_M = 0.75                                 # Variable OM cost ($/MWh)
-        fuel_M = 8.71                                   # SMR fuel cost ($/MWh)
-        g_M_min = 30                                    # SMR minimum stable load (MWh)
+        r_M = 0.4                                   # Ramp rate for SMR (percentage of capacity)
+        k_M = 60                                    # SMR capacity per module (MW)
+        life_M = 40                                 # SMR life time (years)
+        capex_M = 2616000                           # SMR capex ($/MW)
+        fixed_OM_M = 25000                          # Fixed SMR OM cost ($/MW-year)
+        var_OM_M = 0.75                             # Variable OM cost ($/MWh)
+        fuel_M = 8.71                               # SMR fuel cost ($/MWh)
+        g_M_min = 30                                # SMR minimum stable load (MWh)
     elif microreactors_sce == 1:
-        r_M = 0.4                                       # Ramp rate for SMR (percentage of capacity)
-        k_M = 10                                        # SMR capacity per module (MW)
-        life_M = 20                                     # SMR life time (years)
-        capex_M = 3000000                               # SMR capex ($/MW)
+        r_M = 0.4                                   # Ramp rate for SMR (percentage of capacity)
+        k_M = 10                                    # SMR capacity per module (MW)
+        life_M = 40                                 # SMR life time (years)
+        capex_M = 3000000                           # SMR capex ($/MW)
 
-        #p_u3o8 = 40                                     # $/lb
-        #hr_nuclear = 10.16564428                        # Using data from NET model (mmBTU/MWh)
+        #p_u3o8 = 40                                # $/lb
+        #hr_nuclear = 10.16564428                   # Using data from NET model (mmBTU/MWh)
         #lb_to_mmbtu = 180
-        fixed_OM_M = 50000                              # Fixed SMR OM cost ($/MW-year)
-        var_OM_M = 0                                    # Variable OM cost ($/MWh)
-        #fuel_M = p_u3o8*lb_to_mmbtu*hr_nuclear          # SMR fuel cost ($/MWh)
+        fixed_OM_M = 50000                          # Fixed SMR OM cost ($/MW-year)
+        var_OM_M = 0                                # Variable OM cost ($/MWh)
+        #fuel_M = p_u3o8*lb_to_mmbtu*hr_nuclear     # SMR fuel cost ($/MWh)
         fuel_M = 8.71
-        g_M_min = 0.5*k_M                               # SMR minimum stable load (MWh)
+        g_M_min = 0.5*k_M                           # SMR minimum stable load (MWh)
 
     # Solar:
     capex_P = 1354000                               # Solar capex ($/MW)
@@ -120,14 +121,14 @@ def main_params():
     return (super_comp, ramping_const, load_pr_case, inc_h2_demand, first_station, last_station, cap_class, hour, day, station,
             no_station_to_run, ir, capex_B, life_B, fixed_OM_B, p_BC_fixed, p_BE, h_B, ef_B, p_HK_fixed, p_HC_fixed, p_HE, ef_H,
             r_M, k_M, life_M, capex_M, fixed_OM_M, var_OM_M, fuel_M, g_M_min, capex_P, life_P, fixed_OM_P, p_PE, p_WO, cf_W, h2_demand_p,
-            hhv, h2_convert, k_Double, range_or_inds, stations_to_run, stations_to_exclude, initial_h2SOC, trans_cap_util)
+            hhv, h2_convert, h2_convert_elec, k_Double, range_or_inds, stations_to_run, stations_to_exclude, initial_h2SOC, trans_cap_util)
 
 
 def main_function():
     (super_comp, ramping_const, load_pr_case, inc_h2_demand, first_station, last_station, cap_class, hour, day, station,
      no_station_to_run, ir, capex_B, life_B, fixed_OM_B, p_BC_fixed, p_BE, h_B, ef_B, p_HK_fixed, p_HC_fixed, p_HE, ef_H,
      r_M, k_M, life_M, capex_M, fixed_OM_M, var_OM_M, fuel_M, g_M_min, capex_P, life_P, fixed_OM_P, p_PE, p_WO, cf_W, h2_demand_p,
-     hhv, h2_convert, k_Double, range_or_inds, stations_to_run, stations_to_exclude, initial_h2SOC, trans_cap_util) = main_params()
+     hhv, h2_convert, h2_convert_elec, k_Double, range_or_inds, stations_to_run, stations_to_exclude, initial_h2SOC, trans_cap_util) = main_params()
 
     (model_dir, load_folder, solar_folder, trans_folder, results_folder, charging_station_folder) = working_directory(super_comp)
 
@@ -138,7 +139,7 @@ def main_function():
                 charging_station_folder, station, first_station, cap_class, load_pr_case, inc_h2_demand, hour, day,
                 ir, capex_B, fixed_OM_B, p_BC_fixed, life_B, ef_B, p_HK_fixed, p_HC_fixed, ef_H, initial_h2SOC, range_or_inds,
                 capex_M, life_M, fixed_OM_M, var_OM_M, fuel_M, life_P, capex_P, fixed_OM_P, ramping_const, trans_cap_util,
-                k_M, g_M_min, h_B, r_M, p_WO, p_BE, p_HE, p_PE, cf_W, h2_demand_p, hhv, h2_convert, k_Double)
+                k_M, g_M_min, h_B, r_M, p_WO, p_BE, p_HE, p_PE, cf_W, h2_demand_p, hhv, h2_convert, h2_convert_elec, k_Double)
 
 
 # %% Set working directory:
@@ -183,7 +184,7 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
                 charging_station_folder, station, first_station, cap_class, load_pr_case, inc_h2_demand, hour, day,
                 ir, capex_B, fixed_OM_B, p_BC_fixed, life_B, ef_B, p_HK_fixed, p_HC_fixed, ef_H, initial_h2SOC, range_or_inds,
                 capex_M, life_M, fixed_OM_M, var_OM_M, fuel_M, life_P, capex_P, fixed_OM_P, ramping_const, trans_cap_util,
-                k_M, g_M_min, h_B, r_M, p_WO, p_BE, p_HE, p_PE, cf_W, h2_demand_p, hhv, h2_convert, k_Double):
+                k_M, g_M_min, h_B, r_M, p_WO, p_BE, p_HE, p_PE, cf_W, h2_demand_p, hhv, h2_convert, h2_convert_elec, k_Double):
 
     for cs in S_r:
         # %% Set model type - Concrete Model:
@@ -194,7 +195,7 @@ def model_solve(S, S_r, S_t, T, I, model_dir, results_folder, load_folder, solar
         (d_E, d_H_bar) = load_data(model_dir, load_folder, S_t, T, hour, day, station_no, load_pr_case, h2_demand_p, h2_convert, inc_h2_demand)
 
         # Storage:
-        (p_BK, p_BC, p_HK, p_HC, c_H) = storage_data(ir, life_B, capex_B, fixed_OM_B, p_BC_fixed, p_HK_fixed, p_HC_fixed, hhv, h2_convert)
+        (p_BK, p_BC, p_HK, p_HC, c_H) = storage_data(ir, life_B, capex_B, fixed_OM_B, p_BC_fixed, p_HK_fixed, p_HC_fixed, hhv, h2_convert, h2_convert_elec)
 
         # SMR:
         (p_MK, p_ME) = SMR_data(ir, life_M, capex_M, fixed_OM_M, var_OM_M, fuel_M)
